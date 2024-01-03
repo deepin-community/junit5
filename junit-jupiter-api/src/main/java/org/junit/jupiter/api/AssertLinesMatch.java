@@ -1,18 +1,18 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.api;
 
 import static java.lang.String.format;
 import static java.lang.String.join;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.AssertionFailureBuilder.assertionFailure;
 import static org.junit.platform.commons.util.Preconditions.condition;
 import static org.junit.platform.commons.util.Preconditions.notNull;
 
@@ -20,7 +20,9 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 /**
  * {@code AssertLinesMatch} is a collection of utility methods that support asserting
@@ -34,9 +36,39 @@ class AssertLinesMatch {
 		/* no-op */
 	}
 
-	private final static int MAX_SNIPPET_LENGTH = 21;
+	private static final int MAX_SNIPPET_LENGTH = 21;
 
 	static void assertLinesMatch(List<String> expectedLines, List<String> actualLines) {
+		assertLinesMatch(expectedLines, actualLines, (Object) null);
+	}
+
+	static void assertLinesMatch(List<String> expectedLines, List<String> actualLines, String message) {
+		assertLinesMatch(expectedLines, actualLines, (Object) message);
+	}
+
+	static void assertLinesMatch(Stream<String> expectedLines, Stream<String> actualLines) {
+		assertLinesMatch(expectedLines, actualLines, (Object) null);
+	}
+
+	static void assertLinesMatch(Stream<String> expectedLines, Stream<String> actualLines, String message) {
+		assertLinesMatch(expectedLines, actualLines, (Object) message);
+	}
+
+	static void assertLinesMatch(Stream<String> expectedLines, Stream<String> actualLines, Object messageOrSupplier) {
+		notNull(expectedLines, "expectedLines must not be null");
+		notNull(actualLines, "actualLines must not be null");
+
+		// trivial case: same stream instance
+		if (expectedLines == actualLines) {
+			return;
+		}
+
+		List<String> expectedListOfStrings = expectedLines.collect(Collectors.toList());
+		List<String> actualListOfStrings = actualLines.collect(Collectors.toList());
+		assertLinesMatch(expectedListOfStrings, actualListOfStrings, messageOrSupplier);
+	}
+
+	static void assertLinesMatch(List<String> expectedLines, List<String> actualLines, Object messageOrSupplier) {
 		notNull(expectedLines, "expectedLines must not be null");
 		notNull(actualLines, "actualLines must not be null");
 
@@ -45,111 +77,131 @@ class AssertLinesMatch {
 			return;
 		}
 
-		int expectedSize = expectedLines.size();
-		int actualSize = actualLines.size();
-
-		// trivial case: when expecting more than actual lines available, something is wrong
-		if (expectedSize > actualSize) {
-			fail(expectedLines, actualLines, "expected %d lines, but only got %d", expectedSize, actualSize);
-		}
-
-		// simple case: both list are equally sized, compare them line-by-line
-		if (expectedSize == actualSize) {
-			if (IntStream.range(0, expectedSize).allMatch(i -> matches(expectedLines.get(i), actualLines.get(i)))) {
-				return;
-			}
-			// else fall-through to "with fast-forward" matching
-		}
-
-		assertLinesMatchWithFastForward(expectedLines, actualLines);
+		new LinesMatcher(expectedLines, actualLines, messageOrSupplier).assertLinesMatch();
 	}
 
-	private static void assertLinesMatchWithFastForward(List<String> expectedLines, List<String> actualLines) {
-		Deque<String> expectedDeque = new ArrayDeque<>(expectedLines);
-		Deque<String> actualDeque = new ArrayDeque<>(actualLines);
+	private static class LinesMatcher {
 
-		main: while (!expectedDeque.isEmpty()) {
-			String expectedLine = expectedDeque.pop();
-			int expectedLineNumber = expectedLines.size() - expectedDeque.size(); // 1-based line number
-			// trivial case: no more actual lines available
-			if (actualDeque.isEmpty()) {
-				fail(expectedLines, actualLines, "expected line #%d:`%s` not found - actual lines depleted",
-					expectedLineNumber, snippet(expectedLine));
+		private final List<String> expectedLines;
+		private final List<String> actualLines;
+		private final Object messageOrSupplier;
+
+		LinesMatcher(List<String> expectedLines, List<String> actualLines, Object messageOrSupplier) {
+			this.expectedLines = expectedLines;
+			this.actualLines = actualLines;
+			this.messageOrSupplier = messageOrSupplier;
+		}
+
+		void assertLinesMatch() {
+			int expectedSize = expectedLines.size();
+			int actualSize = actualLines.size();
+
+			// trivial case: when expecting more than actual lines available, something is wrong
+			if (expectedSize > actualSize) {
+				fail("expected %d lines, but only got %d", expectedSize, actualSize);
 			}
 
-			String actualLine = actualDeque.peek();
-			// trivial case: take the fast path when they simply match
-			if (matches(expectedLine, actualLine)) {
-				actualDeque.pop();
-				continue; // main
+			// simple case: both list are equally sized, compare them line-by-line
+			if (expectedSize == actualSize) {
+				if (IntStream.range(0, expectedSize).allMatch(i -> matches(expectedLines.get(i), actualLines.get(i)))) {
+					return;
+				}
+				// else fall-through to "with fast-forward" matching
 			}
 
-			// fast-forward marker found in expected line: fast-forward actual line...
-			if (isFastForwardLine(expectedLine)) {
-				int fastForwardLimit = parseFastForwardLimit(expectedLine);
+			assertLinesMatchWithFastForward();
+		}
 
-				// trivial case: fast-forward marker was in last expected line
-				if (expectedDeque.isEmpty()) {
-					int actualRemaining = actualDeque.size();
-					// no limit given or perfect match? we're done.
-					if (fastForwardLimit == Integer.MAX_VALUE || fastForwardLimit == actualRemaining) {
-						return;
-					}
-					fail(expectedLines, actualLines, "terminal fast-forward(%d) error: fast-forward(%d) expected",
-						fastForwardLimit, actualRemaining);
+		void assertLinesMatchWithFastForward() {
+			Deque<String> expectedDeque = new ArrayDeque<>(expectedLines);
+			Deque<String> actualDeque = new ArrayDeque<>(actualLines);
+
+			main: while (!expectedDeque.isEmpty()) {
+				String expectedLine = expectedDeque.pop();
+				int expectedLineNumber = expectedLines.size() - expectedDeque.size(); // 1-based line number
+				// trivial case: no more actual lines available
+				if (actualDeque.isEmpty()) {
+					fail("expected line #%d:`%s` not found - actual lines depleted", expectedLineNumber,
+						snippet(expectedLine));
 				}
 
-				// fast-forward limit was given: use it
-				if (fastForwardLimit != Integer.MAX_VALUE) {
-					// fast-forward now: actualDeque.pop(fastForwardLimit)
-					for (int i = 0; i < fastForwardLimit; i++) {
-						actualDeque.pop();
-					}
+				String actualLine = actualDeque.peek();
+				// trivial case: take the fast path when they match
+				if (matches(expectedLine, actualLine)) {
+					actualDeque.pop();
 					continue; // main
 				}
 
-				// peek next expected line
-				expectedLine = expectedDeque.peek();
-				// fast-forward "unlimited": until next match
-				while (true) {
-					if (actualDeque.isEmpty()) {
-						fail(expectedLines, actualLines, "fast-forward(∞) didn't find: `%s`", snippet(expectedLine));
+				// fast-forward marker found in expected line: fast-forward actual line...
+				if (isFastForwardLine(expectedLine)) {
+					int fastForwardLimit = parseFastForwardLimit(expectedLine);
+					int actualRemaining = actualDeque.size();
+
+					// trivial case: fast-forward marker was in last expected line
+					if (expectedDeque.isEmpty()) {
+						// no limit given or perfect match? we're done.
+						if (fastForwardLimit == Integer.MAX_VALUE || fastForwardLimit == actualRemaining) {
+							return;
+						}
+						fail("terminal fast-forward(%d) error: fast-forward(%d) expected", fastForwardLimit,
+							actualRemaining);
 					}
-					if (matches(expectedLine, actualDeque.peek())) {
-						continue main;
+
+					// fast-forward limit was given: use it
+					if (fastForwardLimit != Integer.MAX_VALUE) {
+						if (actualRemaining < fastForwardLimit) {
+							fail("fast-forward(%d) error: not enough actual lines remaining (%s)", fastForwardLimit,
+								actualRemaining);
+						}
+						// fast-forward now: actualDeque.pop(fastForwardLimit)
+						for (int i = 0; i < fastForwardLimit; i++) {
+							actualDeque.pop();
+						}
+						continue; // main
 					}
-					actualDeque.pop();
+
+					// peek next expected line
+					expectedLine = expectedDeque.peek();
+					// fast-forward "unlimited": until next match
+					while (true) {
+						if (actualDeque.isEmpty()) {
+							fail("fast-forward(∞) didn't find: `%s`", snippet(expectedLine));
+						}
+						if (matches(expectedLine, actualDeque.peek())) {
+							continue main;
+						}
+						actualDeque.pop();
+					}
 				}
+
+				int actualLineNumber = actualLines.size() - actualDeque.size() + 1; // 1-based line number
+				fail("expected line #%d doesn't match actual line #%d%n" + "\texpected: `%s`%n" + "\t  actual: `%s`",
+					expectedLineNumber, actualLineNumber, expectedLine, actualLine);
 			}
 
-			fail(expectedLines, actualLines, "expected line #%d:`%s` doesn't match", expectedLineNumber,
-				snippet(expectedLine));
+			// after math
+			if (!actualDeque.isEmpty()) {
+				fail("more actual lines than expected: %d", actualDeque.size());
+			}
 		}
 
-		// after math
-		if (!actualDeque.isEmpty()) {
-			fail(expectedLines, actualLines, "more actual lines than expected: %d", actualDeque.size());
+		String snippet(String line) {
+			if (line.length() <= MAX_SNIPPET_LENGTH) {
+				return line;
+			}
+			return line.substring(0, MAX_SNIPPET_LENGTH - 5) + "[...]";
 		}
-	}
 
-	private static String snippet(String line) {
-		if (line.length() <= MAX_SNIPPET_LENGTH) {
-			return line;
+		void fail(String format, Object... args) {
+			String newLine = System.lineSeparator();
+			assertionFailure() //
+					.message(messageOrSupplier) //
+					.reason(format(format, args)) //
+					.expected(join(newLine, expectedLines)) //
+					.actual(join(newLine, actualLines)) //
+					.includeValuesInMessage(false) //
+					.buildAndThrow();
 		}
-		return line.substring(0, MAX_SNIPPET_LENGTH - 5) + "[...]";
-	}
-
-	private static void fail(List<String> expectedLines, List<String> actualLines, String format, Object... args) {
-		if (expectedLines.size() > MAX_SNIPPET_LENGTH) {
-			expectedLines.subList(0, MAX_SNIPPET_LENGTH);
-		}
-		if (actualLines.size() > MAX_SNIPPET_LENGTH) {
-			actualLines.subList(0, MAX_SNIPPET_LENGTH);
-		}
-		// use standard assertEquals(Object, Object, message) to let IDEs present the textual difference
-		String expected = join(System.lineSeparator(), expectedLines);
-		String actual = join(System.lineSeparator(), actualLines);
-		assertEquals(expected, actual, format(format, args));
 	}
 
 	static boolean isFastForwardLine(String line) {
@@ -158,7 +210,8 @@ class AssertLinesMatch {
 	}
 
 	static int parseFastForwardLimit(String fastForwardLine) {
-		String text = fastForwardLine.trim().substring(2, fastForwardLine.length() - 2).trim();
+		fastForwardLine = fastForwardLine.trim();
+		String text = fastForwardLine.substring(2, fastForwardLine.length() - 2).trim();
 		try {
 			int limit = Integer.parseInt(text);
 			condition(limit > 0, () -> format("fast-forward(%d) limit must be greater than zero", limit));

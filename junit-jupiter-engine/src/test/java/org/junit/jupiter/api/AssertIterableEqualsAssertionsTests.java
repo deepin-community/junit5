@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.api;
@@ -14,10 +14,14 @@ import static org.junit.jupiter.api.AssertionTestUtils.assertMessageEndsWith;
 import static org.junit.jupiter.api.AssertionTestUtils.assertMessageEquals;
 import static org.junit.jupiter.api.AssertionTestUtils.assertMessageStartsWith;
 import static org.junit.jupiter.api.AssertionTestUtils.expectAssertionFailedError;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.IterableFactory.listOf;
 import static org.junit.jupiter.api.IterableFactory.setOf;
 
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -79,6 +83,7 @@ class AssertIterableEqualsAssertionsTests {
 			listOf(listOf(1), listOf(2), listOf(listOf(3, listOf(4)))));
 		assertIterableEquals(setOf(setOf(1), setOf(2), setOf(setOf(3, setOf(4)))),
 			setOf(setOf(1), setOf(2), setOf(setOf(3, setOf(4)))));
+		assertIterableEquals(listOf(listOf(1), listOf(listOf(1))), setOf(setOf(1), setOf(setOf(1))));
 	}
 
 	@Test
@@ -436,6 +441,37 @@ class AssertIterableEqualsAssertionsTests {
 		catch (AssertionFailedError ex) {
 			assertMessageStartsWith(ex, "message");
 			assertMessageEndsWith(ex, "iterable contents differ at index [4][1][0], expected: <3> but was: <5>");
+		}
+	}
+
+	@Test
+	// https://github.com/junit-team/junit5/issues/2157
+	void assertIterableEqualsWithListOfPath() {
+		var expected = listOf(Path.of("1"));
+		var actual = listOf(Path.of("1"));
+		assertDoesNotThrow(() -> assertIterableEquals(expected, actual));
+	}
+
+	@Test
+	void assertIterableEqualsThrowsStackOverflowErrorForInterlockedRecursiveStructures() {
+		var expected = new ArrayList<>();
+		var actual = new ArrayList<>();
+		actual.add(expected);
+		expected.add(actual);
+		assertThrows(StackOverflowError.class, () -> assertIterableEquals(expected, actual));
+	}
+
+	@Test
+	// https://github.com/junit-team/junit5/issues/2915
+	void assertIterableEqualsWithDifferentListOfPath() {
+		try {
+			var expected = listOf(Path.of("1").resolve("2"));
+			var actual = listOf(Path.of("1").resolve("3"));
+			assertIterableEquals(expected, actual);
+			expectAssertionFailedError();
+		}
+		catch (AssertionFailedError ex) {
+			assertMessageEquals(ex, "iterable contents differ at index [0][1], expected: <2> but was: <3>");
 		}
 	}
 

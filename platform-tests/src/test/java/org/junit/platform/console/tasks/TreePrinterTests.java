@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.console.tasks;
@@ -22,8 +22,6 @@ import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -31,7 +29,7 @@ import org.junit.platform.console.options.Theme;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.UniqueId;
 import org.junit.platform.engine.reporting.ReportEntry;
-import org.junit.platform.engine.test.TestDescriptorStub;
+import org.junit.platform.fakes.TestDescriptorStub;
 import org.junit.platform.launcher.TestIdentifier;
 
 class TreePrinterTests {
@@ -43,7 +41,7 @@ class TreePrinterTests {
 	private List<String> actual() {
 		try {
 			out.flush();
-			return Arrays.asList(stream.toString(charset.name()).split("\\R"));
+			return List.of(stream.toString(charset.name()).split("\\R"));
 		}
 		catch (UnsupportedEncodingException e) {
 			throw new AssertionError(charset.name() + " is an unsupported encoding?!", e);
@@ -52,20 +50,20 @@ class TreePrinterTests {
 
 	@Test
 	void emptyTree() {
-		new TreePrinter(out, Theme.UNICODE, true).print(new TreeNode("<root>"));
-		assertIterableEquals(Collections.singletonList("╷"), actual());
+		new TreePrinter(out, Theme.UNICODE, ColorPalette.NONE).print(new TreeNode("<root>"));
+		assertIterableEquals(List.of("╷"), actual());
 	}
 
 	@Test
 	void emptyEngines() {
-		TreeNode root = new TreeNode("<root>");
+		var root = new TreeNode("<root>");
 		root.addChild(new TreeNode(identifier("e-0", "engine zero"), "none"));
 		root.addChild(new TreeNode(identifier("e-1", "engine one")).setResult(successful()));
 		root.addChild(new TreeNode(identifier("e-2", "engine two")).setResult(failed(null)));
 		root.addChild(new TreeNode(identifier("e-3", "engine three")).setResult(aborted(null)));
-		new TreePrinter(out, Theme.UNICODE, true).print(root);
+		new TreePrinter(out, Theme.UNICODE, ColorPalette.NONE).print(root);
 		assertIterableEquals( //
-			Arrays.asList( //
+			List.of( //
 				"╷", //
 				"├─ engine zero ↷ none", //
 				"├─ engine one ✔", //
@@ -77,10 +75,10 @@ class TreePrinterTests {
 	@Test
 	// https://github.com/junit-team/junit5/issues/786
 	void printNodeHandlesNullMessageThrowableGracefully() {
-		TestExecutionResult result = TestExecutionResult.failed(new NullPointerException());
-		TreeNode node = new TreeNode(identifier("NPE", "test()")).setResult(result);
-		new TreePrinter(out, Theme.ASCII, true).print(node);
-		assertLinesMatch(Arrays.asList(".", "+-- test() [X] java.lang.NullPointerException"), actual());
+		var result = TestExecutionResult.failed(new NullPointerException());
+		var node = new TreeNode(identifier("NPE", "test()")).setResult(result);
+		new TreePrinter(out, Theme.ASCII, ColorPalette.NONE).print(node);
+		assertLinesMatch(List.of(".", "+-- test() [X] java.lang.NullPointerException"), actual());
 	}
 
 	@Test
@@ -103,7 +101,7 @@ class TreePrinterTests {
 		m2.addReportEntry(ReportEntry.from("key", "m-2"));
 		c1.addChild(m2);
 
-		new TreePrinter(out, Theme.UNICODE, true).print(root);
+		new TreePrinter(out, Theme.UNICODE, ColorPalette.NONE).print(root);
 		assertLinesMatch(List.of( //
 			"╷", //
 			"└─ engine one ✔", //

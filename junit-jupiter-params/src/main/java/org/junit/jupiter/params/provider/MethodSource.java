@@ -1,16 +1,16 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.params.provider;
 
-import static org.apiguardian.api.API.Status.EXPERIMENTAL;
+import static org.apiguardian.api.API.Status.STABLE;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -62,12 +62,13 @@ import org.junit.jupiter.params.ParameterizedTest;
  * {@code @ParameterizedTest} methods for those factories accept individual
  * {@code int[][]} and {@code Object[][]} arguments, respectively.
  *
- * <h3>Examples</h3>
+ * <h2>Examples</h2>
  *
  * <p>The following table displays compatible method signatures for parameterized
  * test methods and their corresponding factory methods.
  *
- * <table border="1">
+ * <table class="plain">
+ * <caption>Compatible method signatures and factory methods</caption>
  * <tr><th>{@code @ParameterizedTest} method</th><th>Factory method</th></tr>
  * <tr><td>{@code void test(int)}</td><td>{@code static int[] factory()}</td></tr>
  * <tr><td>{@code void test(int)}</td><td>{@code static IntStream factory()}</td></tr>
@@ -87,8 +88,10 @@ import org.junit.jupiter.params.ParameterizedTest;
  * <p>Factory methods within the test class must be {@code static} unless the
  * {@link org.junit.jupiter.api.TestInstance.Lifecycle#PER_CLASS PER_CLASS}
  * test instance lifecycle mode is used; whereas, factory methods in external
- * classes must always be {@code static}. In any case, factory methods must not
- * declare any parameters.
+ * classes must always be {@code static}.
+ *
+ * <p>Factory methods can declare parameters, which will be provided by registered
+ * implementations of {@link org.junit.jupiter.api.extension.ParameterResolver}.
  *
  * @since 5.0
  * @see Arguments
@@ -99,23 +102,34 @@ import org.junit.jupiter.params.ParameterizedTest;
 @Target({ ElementType.ANNOTATION_TYPE, ElementType.METHOD })
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@API(status = EXPERIMENTAL, since = "5.0")
+@API(status = STABLE, since = "5.7")
 @ArgumentsSource(MethodArgumentsProvider.class)
+@SuppressWarnings("exports")
 public @interface MethodSource {
 
 	/**
 	 * The names of factory methods within the test class or in external classes
 	 * to use as sources for arguments.
 	 *
-	 * <p>Factory methods in external classes must be referenced by <em>fully
-	 * qualified method name</em> &mdash; for example,
-	 * {@code com.example.StringsProviders#blankStrings}.
+	 * <p>Factory methods in external classes must be referenced by
+	 * <em>fully-qualified method name</em> &mdash; for example,
+	 * {@code "com.example.StringsProviders#blankStrings"} or
+	 * {@code "com.example.TopLevelClass$NestedClass#classMethod"} for a factory
+	 * method in a static nested class.
+	 *
+	 * <p>If a factory method accepts arguments that are provided by a
+	 * {@link org.junit.jupiter.api.extension.ParameterResolver ParameterResolver},
+	 * you can supply the formal parameter list in the qualified method name to
+	 * disambiguate between overloaded variants of the factory method. For example,
+	 * {@code "blankStrings(int)"} for a local qualified method name or
+	 * {@code "com.example.StringsProviders#blankStrings(int)"} for a fully-qualified
+	 * method name.
 	 *
 	 * <p>If no factory method names are declared, a method within the test class
 	 * that has the same name as the test method will be used as the factory
 	 * method by default.
 	 *
-	 * <p>For further information, see the {@linkplain MethodSource class-level JavaDoc}.
+	 * <p>For further information, see the {@linkplain MethodSource class-level Javadoc}.
 	 */
 	String[] value() default "";
 

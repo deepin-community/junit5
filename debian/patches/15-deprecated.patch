@@ -1,8 +1,14 @@
+Description: call to AllDefaultPossibilitiesBuilder(boolean) is deprecated
+Author: tony mancill <tmancill@debian.org>
+Bug-Debian: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=975225
+Forwarded: no
+Last-Update: 2022-02-06
+
 --- a/junit-vintage-engine/src/main/java/org/junit/vintage/engine/discovery/DefensiveAllDefaultPossibilitiesBuilder.java
 +++ b/junit-vintage-engine/src/main/java/org/junit/vintage/engine/discovery/DefensiveAllDefaultPossibilitiesBuilder.java
-@@ -45,7 +45,6 @@
- 	private final IgnoredBuilder ignoredBuilder;
+@@ -46,7 +46,6 @@
  
+ 	@SuppressWarnings("deprecation")
  	DefensiveAllDefaultPossibilitiesBuilder() {
 -		super(true);
  		annotatedBuilder = new DefensiveAnnotatedBuilder(this);

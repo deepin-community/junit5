@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.commons.util;
@@ -21,7 +21,7 @@ import org.apiguardian.api.API;
 /**
  * Collection of utilities for working with {@linkplain ClassLoader} and associated tasks.
  *
- * <h3>DISCLAIMER</h3>
+ * <h2>DISCLAIMER</h2>
  *
  * <p>These utilities are intended solely for usage within the JUnit framework
  * itself. <strong>Any usage by external parties is not supported.</strong>
@@ -36,6 +36,19 @@ public final class ClassLoaderUtils {
 		/* no-op */
 	}
 
+	/**
+	 * Get the {@link ClassLoader} for the supplied {@link Class}, falling back
+	 * to the {@link #getDefaultClassLoader() default class loader} if the class
+	 * loader for the supplied class is {@code null}.
+	 * @param clazz the class for which to retrieve the class loader; never {@code null}
+	 * @since 1.10
+	 */
+	public static ClassLoader getClassLoader(Class<?> clazz) {
+		Preconditions.notNull(clazz, "Class must not be null");
+		ClassLoader classLoader = clazz.getClassLoader();
+		return (classLoader != null) ? classLoader : getDefaultClassLoader();
+	}
+
 	public static ClassLoader getDefaultClassLoader() {
 		try {
 			ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
@@ -43,8 +56,9 @@ public final class ClassLoaderUtils {
 				return contextClassLoader;
 			}
 		}
-		catch (Throwable ex) {
-			/* ignore */
+		catch (Throwable t) {
+			UnrecoverableExceptions.rethrowIfUnrecoverable(t);
+			/* otherwise ignore */
 		}
 		return ClassLoader.getSystemClassLoader();
 	}
@@ -73,8 +87,9 @@ public final class ClassLoaderUtils {
 			try {
 				return Optional.ofNullable(loader.getResource(name));
 			}
-			catch (Throwable ignore) {
-				/* ignore */
+			catch (Throwable t) {
+				UnrecoverableExceptions.rethrowIfUnrecoverable(t);
+				/* otherwise ignore */
 			}
 		}
 		// try protection domain

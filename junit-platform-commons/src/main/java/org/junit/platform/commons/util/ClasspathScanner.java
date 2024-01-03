@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.commons.util;
@@ -14,8 +14,8 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
-import static org.junit.platform.commons.util.BlacklistedExceptions.rethrowIfBlacklisted;
 import static org.junit.platform.commons.util.ClassFileVisitor.CLASS_FILE_SUFFIX;
+import static org.junit.platform.commons.util.StringUtils.isNotBlank;
 
 import java.io.IOException;
 import java.net.URI;
@@ -25,18 +25,21 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import org.junit.platform.commons.PreconditionViolationException;
+import org.junit.platform.commons.function.Try;
 import org.junit.platform.commons.logging.Logger;
 import org.junit.platform.commons.logging.LoggerFactory;
 
 /**
- * <h3>DISCLAIMER</h3>
+ * <h2>DISCLAIMER</h2>
  *
  * <p>These utilities are intended solely for usage within the JUnit framework
  * itself. <strong>Any usage by external parties is not supported.</strong>
@@ -49,6 +52,8 @@ class ClasspathScanner {
 	private static final Logger logger = LoggerFactory.getLogger(ClasspathScanner.class);
 
 	private static final char CLASSPATH_RESOURCE_PATH_SEPARATOR = '/';
+	private static final String CLASSPATH_RESOURCE_PATH_SEPARATOR_STRING = String.valueOf(
+		CLASSPATH_RESOURCE_PATH_SEPARATOR);
 	private static final char PACKAGE_SEPARATOR_CHAR = '.';
 	private static final String PACKAGE_SEPARATOR_STRING = String.valueOf(PACKAGE_SEPARATOR_CHAR);
 
@@ -59,22 +64,24 @@ class ClasspathScanner {
 
 	private final Supplier<ClassLoader> classLoaderSupplier;
 
-	private final BiFunction<String, ClassLoader, Optional<Class<?>>> loadClass;
+	private final BiFunction<String, ClassLoader, Try<Class<?>>> loadClass;
 
 	ClasspathScanner(Supplier<ClassLoader> classLoaderSupplier,
-			BiFunction<String, ClassLoader, Optional<Class<?>>> loadClass) {
+			BiFunction<String, ClassLoader, Try<Class<?>>> loadClass) {
 
 		this.classLoaderSupplier = classLoaderSupplier;
 		this.loadClass = loadClass;
 	}
 
 	List<Class<?>> scanForClassesInPackage(String basePackageName, ClassFilter classFilter) {
-
-		PackageUtils.assertPackageNameIsValid(basePackageName);
+		Preconditions.condition(
+			PackageUtils.DEFAULT_PACKAGE_NAME.equals(basePackageName) || isNotBlank(basePackageName),
+			"basePackageName must not be null or blank");
 		Preconditions.notNull(classFilter, "classFilter must not be null");
 		basePackageName = basePackageName.trim();
 
-		return findClassesForUris(getRootUrisForPackage(basePackageName), basePackageName, classFilter);
+		return findClassesForUris(getRootUrisForPackageNameOnClassPathAndModulePath(basePackageName), basePackageName,
+			classFilter);
 	}
 
 	List<Class<?>> scanForClassesInClasspathRoot(URI root, ClassFilter classFilter) {
@@ -132,6 +139,7 @@ class ClasspathScanner {
 				try {
 					// @formatter:off
 					loadClass.apply(fullyQualifiedClassName, getClassLoader())
+							.toOptional()
 							.filter(classFilter) // Always use ".filter(classFilter)" to include future predicates.
 							.ifPresent(classConsumer);
 					// @formatter:on
@@ -184,7 +192,7 @@ class ClasspathScanner {
 	}
 
 	private void handleThrowable(Path classFile, Throwable throwable) {
-		rethrowIfBlacklisted(throwable);
+		UnrecoverableExceptions.rethrowIfUnrecoverable(throwable);
 		logGenericFileProcessingException(classFile, throwable);
 	}
 
@@ -194,6 +202,7 @@ class ClasspathScanner {
 				classFile.toAbsolutePath(), fullyQualifiedClassName));
 		}
 		catch (Throwable t) {
+			UnrecoverableExceptions.rethrowIfUnrecoverable(t);
 			ex.addSuppressed(t);
 			logGenericFileProcessingException(classFile, ex);
 		}
@@ -208,7 +217,28 @@ class ClasspathScanner {
 		return this.classLoaderSupplier.get();
 	}
 
+	private List<URI> getRootUrisForPackageNameOnClassPathAndModulePath(String basePackageName) {
+		Set<URI> uriSet = new LinkedHashSet<>(getRootUrisForPackage(basePackageName));
+		if (!basePackageName.isEmpty() && !basePackageName.endsWith(PACKAGE_SEPARATOR_STRING)) {
+			getRootUrisForPackage(basePackageName + PACKAGE_SEPARATOR_STRING).stream() //
+					.map(ClasspathScanner::removeTrailingClasspathResourcePathSeparator) //
+					.forEach(uriSet::add);
+		}
+		return new ArrayList<>(uriSet);
+	}
+
+	private static URI removeTrailingClasspathResourcePathSeparator(URI uri) {
+		String string = uri.toString();
+		if (string.endsWith(CLASSPATH_RESOURCE_PATH_SEPARATOR_STRING)) {
+			return URI.create(string.substring(0, string.length() - 1));
+		}
+		return uri;
+	}
+
 	private static String packagePath(String packageName) {
+		if (packageName.isEmpty()) {
+			return "";
+		}
 		return packageName.replace(PACKAGE_SEPARATOR_CHAR, CLASSPATH_RESOURCE_PATH_SEPARATOR);
 	}
 

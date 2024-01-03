@@ -1,17 +1,18 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.console.tasks;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.ArrayBlockingQueue;
@@ -28,8 +29,21 @@ class TreeNodeTests {
 	private static final int ITEMS_PER_THREAD = 1000;
 
 	@Test
+	void caption() {
+		assertEquals("", TreeNode.createCaption(""));
+		assertEquals("[@@]", TreeNode.createCaption("[@@]"));
+		assertEquals("[@ @]", TreeNode.createCaption("[@ @]"));
+		assertEquals("[@ @]", TreeNode.createCaption("[@\u000B@]"));
+		assertEquals("[@ @]", TreeNode.createCaption("[@\t@]"));
+		assertEquals("[@  @]", TreeNode.createCaption("[@\t\n@]"));
+		assertEquals("[@   @]", TreeNode.createCaption("[@\t\n\r@]"));
+		assertEquals("[@    @]", TreeNode.createCaption("[@\t\n\r\f@]"));
+		assertEquals("@".repeat(80) + "...", TreeNode.createCaption("@".repeat(1000) + "!"));
+	}
+
+	@Test
 	void childrenCanBeAddedConcurrently() throws Exception {
-		TreeNode treeNode = new TreeNode("root");
+		var treeNode = new TreeNode("root");
 
 		runConcurrently(() -> {
 			for (long i = 0; i < ITEMS_PER_THREAD; i++) {
@@ -37,12 +51,12 @@ class TreeNodeTests {
 			}
 		});
 
-		assertThat(treeNode.children.size()).isEqualTo(NUM_THREADS * ITEMS_PER_THREAD);
+		assertThat(treeNode.children).hasSize(NUM_THREADS * ITEMS_PER_THREAD);
 	}
 
 	@Test
 	void reportEntriesCanBeAddedConcurrently() throws Exception {
-		TreeNode treeNode = new TreeNode("root");
+		var treeNode = new TreeNode("root");
 
 		runConcurrently(() -> {
 			for (long i = 0; i < ITEMS_PER_THREAD; i++) {
@@ -50,14 +64,14 @@ class TreeNodeTests {
 			}
 		});
 
-		assertThat(treeNode.reports.size()).isEqualTo(NUM_THREADS * ITEMS_PER_THREAD);
+		assertThat(treeNode.reports).hasSize(NUM_THREADS * ITEMS_PER_THREAD);
 	}
 
 	private void runConcurrently(Runnable action) throws InterruptedException {
 		ExecutorService executor = new ThreadPoolExecutor(NUM_THREADS, NUM_THREADS, 10, SECONDS,
 			new ArrayBlockingQueue<>(NUM_THREADS));
 		try {
-			CyclicBarrier barrier = new CyclicBarrier(NUM_THREADS);
+			var barrier = new CyclicBarrier(NUM_THREADS);
 			for (long i = 0; i < NUM_THREADS; i++) {
 				executor.submit(() -> {
 					await(barrier);
@@ -67,7 +81,7 @@ class TreeNodeTests {
 		}
 		finally {
 			executor.shutdown();
-			boolean terminated = executor.awaitTermination(10, SECONDS);
+			var terminated = executor.awaitTermination(10, SECONDS);
 			assertTrue(terminated, "Executor was not terminated");
 		}
 	}

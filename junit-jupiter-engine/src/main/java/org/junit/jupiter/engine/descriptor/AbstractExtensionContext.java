@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.engine.descriptor;
@@ -18,39 +18,53 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
+import org.junit.jupiter.api.extension.ExecutableInvoker;
 import org.junit.jupiter.api.extension.ExtensionContext;
-import org.junit.jupiter.engine.execution.ExtensionValuesStore;
+import org.junit.jupiter.api.extension.ExtensionContext.Store.CloseableResource;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.engine.config.JupiterConfiguration;
 import org.junit.jupiter.engine.execution.NamespaceAwareStore;
+import org.junit.platform.commons.JUnitException;
 import org.junit.platform.commons.util.Preconditions;
-import org.junit.platform.engine.ConfigurationParameters;
 import org.junit.platform.engine.EngineExecutionListener;
 import org.junit.platform.engine.TestDescriptor;
 import org.junit.platform.engine.TestTag;
 import org.junit.platform.engine.reporting.ReportEntry;
+import org.junit.platform.engine.support.hierarchical.Node;
+import org.junit.platform.engine.support.store.NamespacedHierarchicalStore;
 
 /**
  * @since 5.0
  */
 abstract class AbstractExtensionContext<T extends TestDescriptor> implements ExtensionContext, AutoCloseable {
 
+	private static final NamespacedHierarchicalStore.CloseAction<Namespace> CLOSE_RESOURCES = (__, ___, value) -> {
+		if (value instanceof CloseableResource) {
+			((CloseableResource) value).close();
+		}
+	};
+
 	private final ExtensionContext parent;
 	private final EngineExecutionListener engineExecutionListener;
 	private final T testDescriptor;
 	private final Set<String> tags;
-	private final ConfigurationParameters configurationParameters;
-	private final ExtensionValuesStore valuesStore;
+	private final JupiterConfiguration configuration;
+	private final NamespacedHierarchicalStore<Namespace> valuesStore;
+	private final ExecutableInvoker executableInvoker;
 
 	AbstractExtensionContext(ExtensionContext parent, EngineExecutionListener engineExecutionListener, T testDescriptor,
-			ConfigurationParameters configurationParameters) {
+			JupiterConfiguration configuration, ExecutableInvoker executableInvoker) {
+		this.executableInvoker = executableInvoker;
 
 		Preconditions.notNull(testDescriptor, "TestDescriptor must not be null");
-		Preconditions.notNull(configurationParameters, "ConfigurationParameters must not be null");
+		Preconditions.notNull(configuration, "JupiterConfiguration must not be null");
 
 		this.parent = parent;
 		this.engineExecutionListener = engineExecutionListener;
 		this.testDescriptor = testDescriptor;
-		this.configurationParameters = configurationParameters;
+		this.configuration = configuration;
 		this.valuesStore = createStore(parent);
 
 		// @formatter:off
@@ -60,17 +74,17 @@ abstract class AbstractExtensionContext<T extends TestDescriptor> implements Ext
 		// @formatter:on
 	}
 
-	private ExtensionValuesStore createStore(ExtensionContext parent) {
-		ExtensionValuesStore parentStore = null;
+	private NamespacedHierarchicalStore<Namespace> createStore(ExtensionContext parent) {
+		NamespacedHierarchicalStore<Namespace> parentStore = null;
 		if (parent != null) {
 			parentStore = ((AbstractExtensionContext<?>) parent).valuesStore;
 		}
-		return new ExtensionValuesStore(parentStore);
+		return new NamespacedHierarchicalStore<>(parentStore, CLOSE_RESOURCES);
 	}
 
 	@Override
 	public void close() {
-		this.valuesStore.closeAllStoredCloseableValues();
+		this.valuesStore.close();
 	}
 
 	@Override
@@ -119,7 +133,33 @@ abstract class AbstractExtensionContext<T extends TestDescriptor> implements Ext
 
 	@Override
 	public Optional<String> getConfigurationParameter(String key) {
-		return this.configurationParameters.get(key);
+		return this.configuration.getRawConfigurationParameter(key);
 	}
 
+	@Override
+	public <V> Optional<V> getConfigurationParameter(String key, Function<String, V> transformer) {
+		return this.configuration.getRawConfigurationParameter(key, transformer);
+	}
+
+	@Override
+	public ExecutionMode getExecutionMode() {
+		return toJupiterExecutionMode(getPlatformExecutionMode());
+	}
+
+	@Override
+	public ExecutableInvoker getExecutableInvoker() {
+		return executableInvoker;
+	}
+
+	protected abstract Node.ExecutionMode getPlatformExecutionMode();
+
+	private ExecutionMode toJupiterExecutionMode(Node.ExecutionMode mode) {
+		switch (mode) {
+			case CONCURRENT:
+				return ExecutionMode.CONCURRENT;
+			case SAME_THREAD:
+				return ExecutionMode.SAME_THREAD;
+		}
+		throw new JUnitException("Unknown ExecutionMode: " + mode);
+	}
 }

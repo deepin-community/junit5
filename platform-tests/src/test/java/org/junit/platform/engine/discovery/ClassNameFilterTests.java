@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.engine.discovery;
@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
-import org.junit.platform.commons.util.PreconditionViolationException;
+import org.junit.platform.commons.PreconditionViolationException;
 
 /**
  * @since 1.0
@@ -38,9 +38,9 @@ class ClassNameFilterTests {
 
 	@Test
 	void includeClassNamePatternsWithSinglePattern() {
-		String regex = "^java\\.lang\\..*";
+		var regex = "^java\\.lang\\..*";
 
-		ClassNameFilter filter = ClassNameFilter.includeClassNamePatterns(regex);
+		var filter = ClassNameFilter.includeClassNamePatterns(regex);
 
 		assertThat(filter).hasToString(
 			"IncludeClassNameFilter that includes class names that match one of the following regular expressions: '"
@@ -59,10 +59,10 @@ class ClassNameFilterTests {
 
 	@Test
 	void includeClassNamePatternsWithMultiplePatterns() {
-		String firstRegex = "^java\\.lang\\..*";
-		String secondRegex = "^java\\.util\\..*";
+		var firstRegex = "^java\\.lang\\..*";
+		var secondRegex = "^java\\.util\\..*";
 
-		ClassNameFilter filter = ClassNameFilter.includeClassNamePatterns(firstRegex, secondRegex);
+		var filter = ClassNameFilter.includeClassNamePatterns(firstRegex, secondRegex);
 
 		assertThat(filter).hasToString(
 			"IncludeClassNameFilter that includes class names that match one of the following regular expressions: '"
@@ -100,9 +100,9 @@ class ClassNameFilterTests {
 
 	@Test
 	void excludeClassNamePatternsWithSinglePattern() {
-		String regex = "^java\\.lang\\..*";
+		var regex = "^java\\.lang\\..*";
 
-		ClassNameFilter filter = ClassNameFilter.excludeClassNamePatterns(regex);
+		var filter = ClassNameFilter.excludeClassNamePatterns(regex);
 
 		assertThat(filter).hasToString(
 			"ExcludeClassNameFilter that excludes class names that match one of the following regular expressions: '"
@@ -122,10 +122,10 @@ class ClassNameFilterTests {
 
 	@Test
 	void excludeClassNamePatternsWithMultiplePatterns() {
-		String firstRegex = "^java\\.lang\\..*";
-		String secondRegex = "^java\\.util\\..*";
+		var firstRegex = "^java\\.lang\\..*";
+		var secondRegex = "^java\\.util\\..*";
 
-		ClassNameFilter filter = ClassNameFilter.excludeClassNamePatterns(firstRegex, secondRegex);
+		var filter = ClassNameFilter.excludeClassNamePatterns(firstRegex, secondRegex);
 
 		assertThat(filter).hasToString(
 			"ExcludeClassNameFilter that excludes class names that match one of the following regular expressions: '"

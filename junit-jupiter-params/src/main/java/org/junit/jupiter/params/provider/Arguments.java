@@ -1,16 +1,16 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.params.provider;
 
-import static org.apiguardian.api.API.Status.EXPERIMENTAL;
+import static org.apiguardian.api.API.Status.STABLE;
 
 import org.apiguardian.api.API;
 import org.junit.platform.commons.util.Preconditions;
@@ -33,7 +33,7 @@ import org.junit.platform.commons.util.Preconditions;
  * <ul>
  *   <li>The standard collections</li>
  *   <li>Tuples from third-party libraries, e.g.,
- *   <a href="http://commons.apache.org/proper/commons-lang/apidocs/org/apache/commons/lang3/tuple/package-summary.html">Commons Lang</a>,
+ *   <a href="https://commons.apache.org/proper/commons-lang/apidocs/org/apache/commons/lang3/tuple/package-summary.html">Commons Lang</a>,
  *   or <a href="https://www.javatuples.org">javatuples</a></li>
  *   <li>Your own data class</li>
  * </ul>
@@ -48,7 +48,7 @@ import org.junit.platform.commons.util.Preconditions;
  * @see org.junit.jupiter.params.provider.ArgumentsProvider
  * @see org.junit.jupiter.params.converter.ArgumentConverter
  */
-@API(status = EXPERIMENTAL, since = "5.0")
+@API(status = STABLE, since = "5.7")
 public interface Arguments {
 
 	/**
@@ -89,7 +89,6 @@ public interface Arguments {
 	 * @return an instance of {@code Arguments}; never {@code null}
 	 * @since 5.3
 	 */
-	@API(status = EXPERIMENTAL, since = "5.3")
 	static Arguments arguments(Object... arguments) {
 		return of(arguments);
 	}

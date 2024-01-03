@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.params.provider;
@@ -21,31 +21,34 @@ import java.util.Arrays;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
-import org.junit.platform.commons.util.PreconditionViolationException;
+import org.junit.platform.commons.PreconditionViolationException;
 
 /**
  * @since 5.0
  */
 class EnumArgumentsProviderTests {
 
+	private ExtensionContext extensionContext = mock();
+
 	@Test
 	void providesAllEnumConstants() {
-		Stream<Object[]> arguments = provideArguments(EnumWithTwoConstants.class);
+		var arguments = provideArguments(EnumWithTwoConstants.class);
 
 		assertThat(arguments).containsExactly(new Object[] { FOO }, new Object[] { BAR });
 	}
 
 	@Test
 	void provideSingleEnumConstant() {
-		Stream<Object[]> arguments = provideArguments(EnumWithTwoConstants.class, "FOO");
+		var arguments = provideArguments(EnumWithTwoConstants.class, "FOO");
 
 		assertThat(arguments).containsExactly(new Object[] { FOO });
 	}
 
 	@Test
 	void provideAllEnumConstantsWithNamingAll() {
-		Stream<Object[]> arguments = provideArguments(EnumWithTwoConstants.class, "FOO", "BAR");
+		var arguments = provideArguments(EnumWithTwoConstants.class, "FOO", "BAR");
 
 		assertThat(arguments).containsExactly(new Object[] { FOO }, new Object[] { BAR });
 	}
@@ -71,6 +74,47 @@ class EnumArgumentsProviderTests {
 		assertThat(exception).hasMessageContaining("Pattern compilation failed");
 	}
 
+	@Test
+	void providesEnumConstantsBasedOnTestMethod() throws Exception {
+		when(extensionContext.getRequiredTestMethod()).thenReturn(
+			TestCase.class.getDeclaredMethod("methodWithCorrectParameter", EnumWithTwoConstants.class));
+
+		var arguments = provideArguments(NullEnum.class);
+
+		assertThat(arguments).containsExactly(new Object[] { FOO }, new Object[] { BAR });
+	}
+
+	@Test
+	void incorrectParameterTypeIsDetected() throws Exception {
+		when(extensionContext.getRequiredTestMethod()).thenReturn(
+			TestCase.class.getDeclaredMethod("methodWithIncorrectParameter", Object.class));
+
+		Exception exception = assertThrows(PreconditionViolationException.class,
+			() -> provideArguments(NullEnum.class));
+		assertThat(exception).hasMessageStartingWith("First parameter must reference an Enum type");
+	}
+
+	@Test
+	void methodsWithoutParametersAreDetected() throws Exception {
+		when(extensionContext.getRequiredTestMethod()).thenReturn(
+			TestCase.class.getDeclaredMethod("methodWithoutParameters"));
+
+		Exception exception = assertThrows(PreconditionViolationException.class,
+			() -> provideArguments(NullEnum.class));
+		assertThat(exception).hasMessageStartingWith("Test method must declare at least one parameter");
+	}
+
+	static class TestCase {
+		void methodWithCorrectParameter(EnumWithTwoConstants parameter) {
+		}
+
+		void methodWithIncorrectParameter(Object parameter) {
+		}
+
+		void methodWithoutParameters() {
+		}
+	}
+
 	enum EnumWithTwoConstants {
 		FOO, BAR
 	}
@@ -80,16 +124,16 @@ class EnumArgumentsProviderTests {
 	}
 
 	private <E extends Enum<E>> Stream<Object[]> provideArguments(Class<E> enumClass, Mode mode, String... names) {
-		EnumSource annotation = mock(EnumSource.class);
+		var annotation = mock(EnumSource.class);
 		when(annotation.value()).thenAnswer(invocation -> enumClass);
 		when(annotation.mode()).thenAnswer(invocation -> mode);
 		when(annotation.names()).thenAnswer(invocation -> names);
 		when(annotation.toString()).thenReturn(String.format("@EnumSource(value=%s.class, mode=%s, names=%s)",
 			enumClass.getSimpleName(), mode, Arrays.toString(names)));
 
-		EnumArgumentsProvider provider = new EnumArgumentsProvider();
+		var provider = new EnumArgumentsProvider();
 		provider.accept(annotation);
-		return provider.provideArguments(null).map(Arguments::get);
+		return provider.provideArguments(extensionContext).map(Arguments::get);
 	}
 
 }

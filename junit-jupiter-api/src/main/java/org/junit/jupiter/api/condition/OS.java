@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.api.condition;
@@ -29,8 +29,10 @@ import org.junit.platform.commons.util.StringUtils;
  *
  * @since 5.1
  * @see #AIX
+ * @see #FREEBSD
  * @see #LINUX
  * @see #MAC
+ * @see #OPENBSD
  * @see #SOLARIS
  * @see #WINDOWS
  * @see #OTHER
@@ -49,6 +51,14 @@ public enum OS {
 	AIX,
 
 	/**
+	 * FreeBSD operating system.
+	 *
+	 * @since 5.9
+	 */
+	@API(status = STABLE, since = "5.9")
+	FREEBSD,
+
+	/**
 	 * Linux-based operating system.
 	 */
 	LINUX,
@@ -57,6 +67,14 @@ public enum OS {
 	 * Apple Macintosh operating system (e.g., macOS).
 	 */
 	MAC,
+
+	/**
+	 * OpenBSD operating system.
+	 *
+	 * @since 5.9
+	 */
+	@API(status = STABLE, since = "5.9")
+	OPENBSD,
 
 	/**
 	 * Oracle Solaris operating system.
@@ -69,8 +87,8 @@ public enum OS {
 	WINDOWS,
 
 	/**
-	 * An operating system other than {@link #AIX}, {@link #LINUX}, {@link #MAC},
-	 * {@link #SOLARIS}, or {@link #WINDOWS}.
+	 * An operating system other than {@link #AIX}, {@link #FREEBSD}, {@link #LINUX},
+	 * {@link #MAC}, {@link #OPENBSD}, {@link #SOLARIS}, or {@link #WINDOWS}.
 	 */
 	OTHER;
 
@@ -78,9 +96,21 @@ public enum OS {
 
 	private static final OS CURRENT_OS = determineCurrentOs();
 
-	private static OS determineCurrentOs() {
-		String osName = System.getProperty("os.name");
+	/**
+	 * Get the current operating system.
+	 *
+	 * @since 5.9
+	 */
+	@API(status = STABLE, since = "5.10")
+	public static OS current() {
+		return CURRENT_OS;
+	}
 
+	private static OS determineCurrentOs() {
+		return parse(System.getProperty("os.name"));
+	}
+
+	static OS parse(String osName) {
 		if (StringUtils.isBlank(osName)) {
 			logger.debug(
 				() -> "JVM system property 'os.name' is undefined. It is therefore not possible to detect the current OS.");
@@ -94,11 +124,17 @@ public enum OS {
 		if (osName.contains("aix")) {
 			return AIX;
 		}
+		if (osName.contains("freebsd")) {
+			return FREEBSD;
+		}
 		if (osName.contains("linux")) {
 			return LINUX;
 		}
 		if (osName.contains("mac")) {
 			return MAC;
+		}
+		if (osName.contains("openbsd")) {
+			return OPENBSD;
 		}
 		if (osName.contains("sunos") || osName.contains("solaris")) {
 			return SOLARIS;

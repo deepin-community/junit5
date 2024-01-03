@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.engine.support.descriptor;
@@ -18,7 +18,7 @@ import java.net.URI;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
-import org.junit.platform.commons.util.PreconditionViolationException;
+import org.junit.platform.commons.PreconditionViolationException;
 
 /**
  * Unit tests for {@link DefaultUriSource}.
@@ -39,21 +39,21 @@ class DefaultUriSourceTests extends AbstractTestSourceTests {
 
 	@Test
 	void getterReturnsSameUriInstanceAsSuppliedToTheConstructor() throws Exception {
-		URI expected = new URI("foo.txt");
-		URI actual = new DefaultUriSource(expected).getUri();
+		var expected = new URI("foo.txt");
+		var actual = new DefaultUriSource(expected).getUri();
 		assertSame(expected, actual);
 	}
 
 	@Test
 	void equalsAndHashCode() throws Exception {
-		URI uri1 = new URI("foo.txt");
-		URI uri2 = new URI("bar.txt");
+		var uri1 = new URI("foo.txt");
+		var uri2 = new URI("bar.txt");
 		assertEqualsAndHashCode(new DefaultUriSource(uri1), new DefaultUriSource(uri1), new DefaultUriSource(uri2));
 	}
 
 	@Test
 	void testToString() {
-		String actual = new DefaultUriSource(URI.create("foo.txt")).toString();
+		var actual = new DefaultUriSource(URI.create("foo.txt")).toString();
 		assertEquals("DefaultUriSource [uri = foo.txt]", actual);
 	}
 }

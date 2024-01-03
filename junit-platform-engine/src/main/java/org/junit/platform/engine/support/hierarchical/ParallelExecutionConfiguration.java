@@ -1,18 +1,20 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.engine.support.hierarchical;
 
 import static org.apiguardian.api.API.Status.EXPERIMENTAL;
+import static org.apiguardian.api.API.Status.STABLE;
 
 import java.util.concurrent.ForkJoinPool;
+import java.util.function.Predicate;
 
 import org.apiguardian.api.API;
 
@@ -24,13 +26,12 @@ import org.apiguardian.api.API;
  * implementations may use all of the properties in this class or
  * only a subset.
  *
+ * @since 1.3
  * @see ForkJoinPoolHierarchicalTestExecutorService
  * @see ParallelExecutionConfigurationStrategy
  * @see DefaultParallelExecutionConfigurationStrategy
- *
- * @since 1.3
  */
-@API(status = EXPERIMENTAL, since = "1.3")
+@API(status = STABLE, since = "1.10")
 public interface ParallelExecutionConfiguration {
 
 	/**
@@ -60,5 +61,17 @@ public interface ParallelExecutionConfiguration {
 	 * before terminating them and shrinking the thread pool.
 	 */
 	int getKeepAliveSeconds();
+
+	/**
+	 * Get the saturate predicate to be used for the execution's {@link ForkJoinPool}.
+	 * @return the saturate predicate to be passed to the {@code ForkJoinPool} constructor; may be {@code null}
+	 * @since 1.9
+	 * @see ForkJoinPool#ForkJoinPool(int, ForkJoinPool.ForkJoinWorkerThreadFactory, Thread.UncaughtExceptionHandler,
+	 * boolean, int, int, int, Predicate, long, TimeUnit)
+	 */
+	@API(status = EXPERIMENTAL, since = "1.9")
+	default Predicate<? super ForkJoinPool> getSaturatePredicate() {
+		return null;
+	}
 
 }

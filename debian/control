@@ -4,29 +4,30 @@ Priority: optional
 Maintainer: Debian Java Maintainers <pkg-java-maintainers@lists.alioth.debian.org>
 Uploaders: Emmanuel Bourg <ebourg@apache.org>
 Build-Depends:
- debhelper-compat (= 12),
+ debhelper-compat (= 13),
  default-jdk,
- gradle-debian-helper,
+ javahelper,
  junit4,
  libapiguardian-java,
- libjengelman-shadow-java,
+ libbuild-helper-maven-plugin-java,
+ libhamcrest-java,
+ libmaven-shade-plugin-java,
  libopentest4j-java,
+ libopentest4j-reporting-java,
  libpicocli-java,
  libsurefire-java,
  libunivocity-parsers-java,
+ maven-debian-helper,
  maven-repo-helper
-Standards-Version: 4.5.0
+Standards-Version: 4.6.2
 Vcs-Git: https://salsa.debian.org/java-team/junit5.git
 Vcs-Browser: https://salsa.debian.org/java-team/junit5
 Homepage: https://github.com/junit-team/junit5
+Rules-Requires-Root: no
 
 Package: junit5
 Architecture: all
-Depends:
- ${misc:Depends},
- libapiguardian-java,
- libopentest4j-java,
- libunivocity-parsers-java
+Depends: ${misc:Depends}, ${maven:Depends}
 Description: JUnit regression test framework for Java
  JUnit is a framework to write repeatable tests.
  .

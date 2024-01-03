@@ -1,69 +1,90 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.launcher.core;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
+import org.junit.platform.commons.PreconditionViolationException;
 import org.junit.platform.engine.TestDescriptor;
+import org.junit.platform.engine.TestEngine;
 import org.junit.platform.engine.UniqueId;
-import org.junit.platform.engine.test.TestDescriptorStub;
+import org.junit.platform.fakes.TestDescriptorStub;
+import org.junit.platform.fakes.TestEngineStub;
 
 /**
  * @since 1.3
  */
 class EngineDiscoveryResultValidatorTests {
 
+	private final TestEngine testEngine = new TestEngineStub("my-engine");
 	private final EngineDiscoveryResultValidator validator = new EngineDiscoveryResultValidator();
 
 	@Test
 	void detectCycleWithDoubleRoot() {
-		TestDescriptorStub root = new TestDescriptorStub(UniqueId.forEngine("root"), "root");
-		assertTrue(validator.isAcyclic(root));
+		var root = new TestDescriptorStub(UniqueId.forEngine("root"), "root");
+		validator.validate(testEngine, root);
 
 		root.addChild(root);
-		assertFalse(validator.isAcyclic(root));
+		assertThatThrownBy(() -> validator.validate(testEngine, root)) //
+				.isInstanceOf(PreconditionViolationException.class) //
+				.hasMessage("""
+						The discover() method for TestEngine with ID 'my-engine' returned a cyclic graph; \
+						[engine:root] exists in at least two paths:
+						(1) [engine:root]
+						(2) [engine:root] -> [engine:root]""");
 	}
 
 	@Test
 	void detectCycleWithDoubleGroup() {
-		UniqueId rootId = UniqueId.forEngine("root");
-		TestDescriptorStub root = new TestDescriptorStub(rootId, "root");
+		var rootId = UniqueId.forEngine("root");
+		var root = new TestDescriptorStub(rootId, "root");
 		TestDescriptor group1 = new TestDescriptorStub(rootId.append("group", "1"), "1");
 		TestDescriptor group2 = new TestDescriptorStub(rootId.append("group", "2"), "2");
 		root.addChild(group1);
 		root.addChild(group2);
-		assertTrue(validator.isAcyclic(root));
+		validator.validate(testEngine, root);
 
 		group2.addChild(group1);
-		assertFalse(validator.isAcyclic(root));
+		assertThatThrownBy(() -> validator.validate(testEngine, root)) //
+				.isInstanceOf(PreconditionViolationException.class) //
+				.hasMessage("""
+						The discover() method for TestEngine with ID 'my-engine' returned a cyclic graph; \
+						[engine:root]/[group:1] exists in at least two paths:
+						(1) [engine:root] -> [engine:root]/[group:1]
+						(2) [engine:root] -> [engine:root]/[group:2] -> [engine:root]/[group:1]""");
 	}
 
 	@Test
 	void detectCycleWithDoubleTest() {
-		UniqueId rootId = UniqueId.forEngine("root");
-		TestDescriptorStub root = new TestDescriptorStub(rootId, "root");
+		var rootId = UniqueId.forEngine("root");
+		var root = new TestDescriptorStub(rootId, "root");
 		TestDescriptor group1 = new TestDescriptorStub(rootId.append("group", "1"), "1");
 		TestDescriptor group2 = new TestDescriptorStub(rootId.append("group", "2"), "2");
 		root.addChild(group1);
 		root.addChild(group2);
-		TestDescriptor test1 = new TestDescriptorStub(rootId.append("test", "1"), "1-1");
-		TestDescriptor test2 = new TestDescriptorStub(rootId.append("test", "2"), "2-2");
+		TestDescriptor test1 = new TestDescriptorStub(group1.getUniqueId().append("test", "1"), "1-1");
+		TestDescriptor test2 = new TestDescriptorStub(group2.getUniqueId().append("test", "2"), "2-2");
 		group1.addChild(test1);
 		group2.addChild(test2);
-		assertTrue(validator.isAcyclic(root));
+		validator.validate(testEngine, root);
 
 		group2.addChild(test1);
-		assertFalse(validator.isAcyclic(root));
+		assertThatThrownBy(() -> validator.validate(testEngine, root)) //
+				.isInstanceOf(PreconditionViolationException.class) //
+				.hasMessage("""
+						The discover() method for TestEngine with ID 'my-engine' returned a cyclic graph; \
+						[engine:root]/[group:1]/[test:1] exists in at least two paths:
+						(1) [engine:root] -> [engine:root]/[group:1] -> [engine:root]/[group:1]/[test:1]
+						(2) [engine:root] -> [engine:root]/[group:2] -> [engine:root]/[group:1]/[test:1]""");
 	}
 
 }

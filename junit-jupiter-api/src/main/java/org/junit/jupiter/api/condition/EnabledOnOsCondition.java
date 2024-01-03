@@ -1,25 +1,19 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.api.condition;
 
-import static org.junit.jupiter.api.extension.ConditionEvaluationResult.disabled;
-import static org.junit.jupiter.api.extension.ConditionEvaluationResult.enabled;
-import static org.junit.platform.commons.util.AnnotationUtils.findAnnotation;
-
 import java.util.Arrays;
-import java.util.Optional;
 
 import org.junit.jupiter.api.extension.ConditionEvaluationResult;
 import org.junit.jupiter.api.extension.ExecutionCondition;
-import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.platform.commons.util.Preconditions;
 
 /**
@@ -28,26 +22,40 @@ import org.junit.platform.commons.util.Preconditions;
  * @since 5.1
  * @see EnabledOnOs
  */
-class EnabledOnOsCondition implements ExecutionCondition {
+class EnabledOnOsCondition extends AbstractOsBasedExecutionCondition<EnabledOnOs> {
 
-	private static final ConditionEvaluationResult ENABLED_BY_DEFAULT = enabled("@EnabledOnOs is not present");
-
-	static final ConditionEvaluationResult ENABLED_ON_CURRENT_OS = //
-		enabled("Enabled on operating system: " + System.getProperty("os.name"));
-
-	static final ConditionEvaluationResult DISABLED_ON_CURRENT_OS = //
-		disabled("Disabled on operating system: " + System.getProperty("os.name"));
+	EnabledOnOsCondition() {
+		super(EnabledOnOs.class);
+	}
 
 	@Override
-	public ConditionEvaluationResult evaluateExecutionCondition(ExtensionContext context) {
-		Optional<EnabledOnOs> optional = findAnnotation(context.getElement(), EnabledOnOs.class);
-		if (optional.isPresent()) {
-			OS[] operatingSystems = optional.get().value();
-			Preconditions.condition(operatingSystems.length > 0, "You must declare at least one OS in @EnabledOnOs");
-			return (Arrays.stream(operatingSystems).anyMatch(OS::isCurrentOs)) ? ENABLED_ON_CURRENT_OS
-					: DISABLED_ON_CURRENT_OS;
+	ConditionEvaluationResult evaluateExecutionCondition(EnabledOnOs annotation) {
+		boolean osSpecified = annotation.value().length > 0;
+		boolean archSpecified = annotation.architectures().length > 0;
+		Preconditions.condition(osSpecified || archSpecified,
+			"You must declare at least one OS or architecture in @EnabledOnOs");
+
+		boolean enabled = isEnabledBasedOnOs(annotation) && isEnabledBasedOnArchitecture(annotation);
+		String reason = createReason(enabled, osSpecified, archSpecified);
+
+		return enabled ? ConditionEvaluationResult.enabled(reason)
+				: ConditionEvaluationResult.disabled(reason, annotation.disabledReason());
+	}
+
+	private boolean isEnabledBasedOnOs(EnabledOnOs annotation) {
+		OS[] operatingSystems = annotation.value();
+		if (operatingSystems.length == 0) {
+			return true;
 		}
-		return ENABLED_BY_DEFAULT;
+		return Arrays.stream(operatingSystems).anyMatch(OS::isCurrentOs);
+	}
+
+	private boolean isEnabledBasedOnArchitecture(EnabledOnOs annotation) {
+		String[] architectures = annotation.architectures();
+		if (architectures.length == 0) {
+			return true;
+		}
+		return Arrays.stream(architectures).anyMatch(CURRENT_ARCHITECTURE::equalsIgnoreCase);
 	}
 
 }

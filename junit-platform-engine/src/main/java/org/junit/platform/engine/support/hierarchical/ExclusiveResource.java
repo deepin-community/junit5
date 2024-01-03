@@ -1,16 +1,16 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.engine.support.hierarchical;
 
-import static org.apiguardian.api.API.Status.EXPERIMENTAL;
+import static org.apiguardian.api.API.Status.STABLE;
 
 import java.util.Objects;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -18,16 +18,37 @@ import java.util.concurrent.locks.ReadWriteLock;
 import org.apiguardian.api.API;
 import org.junit.platform.commons.util.Preconditions;
 import org.junit.platform.commons.util.ToStringBuilder;
+import org.junit.platform.engine.support.hierarchical.Node.ExecutionMode;
 
 /**
  * An exclusive resource identified by a key with a lock mode that is used to
  * synchronize access to shared resources when executing nodes in parallel.
  *
- * @see Node#getExecutionMode()
  * @since 1.3
+ * @see Node#getExecutionMode()
  */
-@API(status = EXPERIMENTAL, since = "1.3")
+@API(status = STABLE, since = "1.10")
 public class ExclusiveResource {
+
+	/**
+	 * Key of the global resource lock that all direct children of the engine
+	 * descriptor acquire in {@linkplain LockMode#READ read mode} by default:
+	 * {@value}
+	 *
+	 * <p>If any node {@linkplain Node#getExclusiveResources() requires} an
+	 * exclusive resource with the same key in
+	 * {@linkplain LockMode#READ_WRITE read-write mode}, the lock will be
+	 * coarsened to be acquired by the node's ancestor that is a direct child of
+	 * the engine descriptor and all of the ancestor's descendants will be
+	 * forced to run in the {@linkplain ExecutionMode#SAME_THREAD same thread}.
+	 *
+	 * @since 1.7
+	 */
+	@API(status = STABLE, since = "1.10")
+	public static final String GLOBAL_KEY = "org.junit.platform.engine.support.hierarchical.ExclusiveResource.GLOBAL_KEY";
+
+	static final ExclusiveResource GLOBAL_READ = new ExclusiveResource(GLOBAL_KEY, LockMode.READ);
+	static final ExclusiveResource GLOBAL_READ_WRITE = new ExclusiveResource(GLOBAL_KEY, LockMode.READ_WRITE);
 
 	private final String key;
 	private final LockMode lockMode;

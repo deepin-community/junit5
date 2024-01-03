@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.params.aggregator;
@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apiguardian.api.API;
+import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.params.converter.DefaultArgumentConverter;
 import org.junit.platform.commons.util.ClassUtils;
 import org.junit.platform.commons.util.Preconditions;
@@ -35,10 +36,16 @@ import org.junit.platform.commons.util.Preconditions;
 @API(status = INTERNAL, since = "5.2")
 public class DefaultArgumentsAccessor implements ArgumentsAccessor {
 
+	private final ParameterContext parameterContext;
+	private final int invocationIndex;
 	private final Object[] arguments;
 
-	public DefaultArgumentsAccessor(Object... arguments) {
+	public DefaultArgumentsAccessor(ParameterContext parameterContext, int invocationIndex, Object... arguments) {
+		Preconditions.notNull(parameterContext, "ParameterContext must not be null");
+		Preconditions.condition(invocationIndex >= 1, () -> "invocation index must be >= 1");
 		Preconditions.notNull(arguments, "Arguments array must not be null");
+		this.parameterContext = parameterContext;
+		this.invocationIndex = invocationIndex;
 		this.arguments = arguments;
 	}
 
@@ -54,7 +61,8 @@ public class DefaultArgumentsAccessor implements ArgumentsAccessor {
 		Preconditions.notNull(requiredType, "requiredType must not be null");
 		Object value = get(index);
 		try {
-			Object convertedValue = DefaultArgumentConverter.INSTANCE.convert(value, requiredType);
+			Object convertedValue = DefaultArgumentConverter.INSTANCE.convert(value, requiredType,
+				this.parameterContext);
 			return requiredType.cast(convertedValue);
 		}
 		catch (Exception ex) {
@@ -124,6 +132,11 @@ public class DefaultArgumentsAccessor implements ArgumentsAccessor {
 	@Override
 	public List<Object> toList() {
 		return Collections.unmodifiableList(Arrays.asList(this.arguments));
+	}
+
+	@Override
+	public int getInvocationIndex() {
+		return this.invocationIndex;
 	}
 
 }

@@ -1,15 +1,16 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.api.extension;
 
+import static org.apiguardian.api.API.Status.EXPERIMENTAL;
 import static org.apiguardian.api.API.Status.STABLE;
 
 import java.lang.reflect.AnnotatedElement;
@@ -25,8 +26,9 @@ import java.util.function.Function;
 
 import org.apiguardian.api.API;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.platform.commons.PreconditionViolationException;
 import org.junit.platform.commons.support.ReflectionSupport;
-import org.junit.platform.commons.util.PreconditionViolationException;
 import org.junit.platform.commons.util.Preconditions;
 
 /**
@@ -147,8 +149,8 @@ public interface ExtensionContext {
 	 *
 	 * @return an {@code Optional} containing the test instance {@code Lifecycle};
 	 * never {@code null} but potentially empty
-	 * @see org.junit.jupiter.api.TestInstance {@code @TestInstance}
 	 * @since 5.1
+	 * @see org.junit.jupiter.api.TestInstance {@code @TestInstance}
 	 */
 	@API(status = STABLE, since = "5.1")
 	Optional<Lifecycle> getTestInstanceLifecycle();
@@ -160,6 +162,7 @@ public interface ExtensionContext {
 	 * @return an {@code Optional} containing the test instance; never
 	 * {@code null} but potentially empty
 	 * @see #getRequiredTestInstance()
+	 * @see #getTestInstances()
 	 */
 	Optional<Object> getTestInstance();
 
@@ -173,10 +176,45 @@ public interface ExtensionContext {
 	 * @return the test instance; never {@code null}
 	 * @throws PreconditionViolationException if the test instance is not present
 	 * in this {@code ExtensionContext}
+	 *
+	 * @see #getRequiredTestInstances()
 	 */
 	default Object getRequiredTestInstance() {
 		return Preconditions.notNull(getTestInstance().orElse(null),
 			"Illegal state: required test instance is not present in the current ExtensionContext");
+	}
+
+	/**
+	 * Get the test instances associated with the current test or container,
+	 * if available.
+	 *
+	 * <p>While top-level tests only have a single test instance, nested tests
+	 * have one additional instance for each enclosing test class.
+	 *
+	 * @return an {@code Optional} containing the test instances; never
+	 * {@code null} but potentially empty
+	 * @since 5.4
+	 * @see #getRequiredTestInstances()
+	 */
+	@API(status = STABLE, since = "5.7")
+	Optional<TestInstances> getTestInstances();
+
+	/**
+	 * Get the <em>required</em> test instances associated with the current test
+	 * or container.
+	 *
+	 * <p>Use this method as an alternative to {@link #getTestInstances()} for use
+	 * cases in which the test instances are required to be present.
+	 *
+	 * @return the test instances; never {@code null}
+	 * @throws PreconditionViolationException if the test instances are not present
+	 * in this {@code ExtensionContext}
+	 * @since 5.4
+	 */
+	@API(status = STABLE, since = "5.7")
+	default TestInstances getRequiredTestInstances() {
+		return Preconditions.notNull(getTestInstances().orElse(null),
+			"Illegal state: required test instances are not present in the current ExtensionContext");
 	}
 
 	/**
@@ -246,12 +284,37 @@ public interface ExtensionContext {
 	 * @return an {@code Optional} containing the value; never {@code null}
 	 * but potentially empty
 	 *
+	 * @since 5.1
 	 * @see System#getProperty(String)
 	 * @see org.junit.platform.engine.ConfigurationParameters
-	 * @since 5.1
 	 */
 	@API(status = STABLE, since = "5.1")
 	Optional<String> getConfigurationParameter(String key);
+
+	/**
+	 * Get and transform the configuration parameter stored under the specified
+	 * {@code key} using the specified {@code transformer}.
+	 *
+	 * <p>If no such key is present in the {@code ConfigurationParameters} for
+	 * the JUnit Platform, an attempt will be made to look up the value as a
+	 * JVM system property. If no such system property exists, an attempt will
+	 * be made to look up the value in the JUnit Platform properties file.
+	 *
+	 * <p>In case the transformer throws an exception, it will be wrapped in a
+	 * {@link org.junit.platform.commons.JUnitException} with a helpful message.
+	 *
+	 * @param key the key to look up; never {@code null} or blank
+	 * @param transformer the transformer to apply in case a value is found;
+	 * never {@code null}
+	 * @return an {@code Optional} containing the value; never {@code null}
+	 * but potentially empty
+	 *
+	 * @since 5.7
+	 * @see System#getProperty(String)
+	 * @see org.junit.platform.engine.ConfigurationParameters
+	 */
+	@API(status = STABLE, since = "5.10")
+	<T> Optional<T> getConfigurationParameter(String key, Function<String, T> transformer);
 
 	/**
 	 * Publish a map of key-value pairs to be consumed by an
@@ -292,10 +355,10 @@ public interface ExtensionContext {
 	 * argument as the value.
 	 *
 	 * @param value the value to be published; never {@code null} or blank
+	 * @since 5.3
 	 * @see #publishReportEntry(Map)
 	 * @see #publishReportEntry(String, String)
 	 * @see org.junit.platform.engine.EngineExecutionListener#reportingEntryPublished
-	 * @since 5.3
 	 */
 	@API(status = STABLE, since = "5.3")
 	default void publishReportEntry(String value) {
@@ -320,6 +383,26 @@ public interface ExtensionContext {
 	Store getStore(Namespace namespace);
 
 	/**
+	 * Get the {@link ExecutionMode} associated with the current test or container.
+	 *
+	 * @return the {@code ExecutionMode} of the test; never {@code null}
+	 *
+	 * @since 5.8.1
+	 * @see org.junit.jupiter.api.parallel.ExecutionMode {@code @ExecutionMode}
+	 */
+	@API(status = STABLE, since = "5.8.1")
+	ExecutionMode getExecutionMode();
+
+	/**
+	 * Get an {@link ExecutableInvoker} to invoke methods and constructors
+	 * with support for dynamic resolution of parameters.
+	 *
+	 * @since 5.9
+	 */
+	@API(status = EXPERIMENTAL, since = "5.9")
+	ExecutableInvoker getExecutableInvoker();
+
+	/**
 	 * {@code Store} provides methods for extensions to save and retrieve data.
 	 */
 	interface Store {
@@ -331,6 +414,9 @@ public interface ExtensionContext {
 		 *
 		 * <p>Note that the {@code CloseableResource} API is only honored for
 		 * objects stored within an extension context {@link Store Store}.
+		 *
+		 * <p>The resources stored in a {@link Store Store} are closed in the
+		 * inverse order they were added in.
 		 *
 		 * @since 5.1
 		 */
@@ -360,6 +446,7 @@ public interface ExtensionContext {
 		 * @param key the key; never {@code null}
 		 * @return the value; potentially {@code null}
 		 * @see #get(Object, Class)
+		 * @see #getOrDefault(Object, Class, Object)
 		 */
 		Object get(Object key);
 
@@ -377,8 +464,34 @@ public interface ExtensionContext {
 		 * @param <V> the value type
 		 * @return the value; potentially {@code null}
 		 * @see #get(Object)
+		 * @see #getOrDefault(Object, Class, Object)
 		 */
 		<V> V get(Object key, Class<V> requiredType);
+
+		/**
+		 * Get the value of the specified required type that is stored under
+		 * the supplied {@code key}, or the supplied {@code defaultValue} if no
+		 * value is found for the supplied {@code key} in this store or in an
+		 * ancestor.
+		 *
+		 * <p>If no value is stored in the current {@link ExtensionContext}
+		 * for the supplied {@code key}, ancestors of the context will be queried
+		 * for a value with the same {@code key} in the {@code Namespace} used
+		 * to create this store.
+		 *
+		 * @param key the key; never {@code null}
+		 * @param requiredType the required type of the value; never {@code null}
+		 * @param defaultValue the default value
+		 * @param <V> the value type
+		 * @return the value; potentially {@code null}
+		 * @since 5.5
+		 * @see #get(Object, Class)
+		 */
+		@API(status = STABLE, since = "5.5")
+		default <V> V getOrDefault(Object key, Class<V> requiredType, V defaultValue) {
+			V value = get(key, requiredType);
+			return (value != null ? value : defaultValue);
+		}
 
 		/**
 		 * Get the object of type {@code type} that is present in this
@@ -405,10 +518,10 @@ public interface ExtensionContext {
 		 * @param type the type of object to retrieve; never {@code null}
 		 * @param <V> the key and value type
 		 * @return the object; never {@code null}
+		 * @since 5.1
 		 * @see #getOrComputeIfAbsent(Object, Function)
 		 * @see #getOrComputeIfAbsent(Object, Function, Class)
 		 * @see CloseableResource
-		 * @since 5.1
 		 */
 		@API(status = STABLE, since = "5.1")
 		default <V> V getOrComputeIfAbsent(Class<V> type) {
@@ -434,7 +547,7 @@ public interface ExtensionContext {
 		 *
 		 * @param key the key; never {@code null}
 		 * @param defaultCreator the function called with the supplied {@code key}
-		 * to create a new value; never {@code null}
+		 * to create a new value; never {@code null} but may return {@code null}
 		 * @param <K> the key type
 		 * @param <V> the value type
 		 * @return the value; potentially {@code null}
@@ -461,7 +574,7 @@ public interface ExtensionContext {
 		 *
 		 * @param key the key; never {@code null}
 		 * @param defaultCreator the function called with the supplied {@code key}
-		 * to create a new value; never {@code null}
+		 * to create a new value; never {@code null} but may return {@code null}
 		 * @param requiredType the required type of the value; never {@code null}
 		 * @param <K> the key type
 		 * @param <V> the value type
@@ -553,13 +666,13 @@ public interface ExtensionContext {
 		public static Namespace create(Object... parts) {
 			Preconditions.notEmpty(parts, "parts array must not be null or empty");
 			Preconditions.containsNoNullElements(parts, "individual parts must not be null");
-			return new Namespace(parts);
+			return new Namespace(new ArrayList<>(Arrays.asList(parts)));
 		}
 
-		private final List<?> parts;
+		private final List<Object> parts;
 
-		private Namespace(Object... parts) {
-			this.parts = new ArrayList<>(Arrays.asList(parts));
+		private Namespace(List<Object> parts) {
+			this.parts = parts;
 		}
 
 		@Override
@@ -579,6 +692,22 @@ public interface ExtensionContext {
 			return this.parts.hashCode();
 		}
 
+		/**
+		 * Create a new namespace by appending the supplied {@code parts} to the
+		 * existing sequence of parts in this namespace.
+		 *
+		 * @return new namespace; never {@code null}
+		 * @since 5.8
+		 */
+		@API(status = STABLE, since = "5.10")
+		public Namespace append(Object... parts) {
+			Preconditions.notEmpty(parts, "parts array must not be null or empty");
+			Preconditions.containsNoNullElements(parts, "individual parts must not be null");
+			ArrayList<Object> newParts = new ArrayList<>(this.parts.size() + parts.length);
+			newParts.addAll(this.parts);
+			Collections.addAll(newParts, parts);
+			return new Namespace(newParts);
+		}
 	}
 
 }

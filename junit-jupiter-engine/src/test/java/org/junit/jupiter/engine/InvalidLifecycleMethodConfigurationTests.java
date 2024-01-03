@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.engine;
@@ -13,18 +13,17 @@ package org.junit.jupiter.engine;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
-import static org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder.request;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.platform.engine.test.event.ExecutionEventRecorder;
-import org.junit.platform.launcher.LauncherDiscoveryRequest;
+import org.junit.platform.testkit.engine.EngineExecutionResults;
+import org.junit.platform.testkit.engine.Events;
 
 /**
- * Integration tests that very proper handling of invalid configuration for
+ * Integration tests that verify proper handling of invalid configuration for
  * lifecycle methods in conjunction with the {@link JupiterTestEngine}.
  *
  * <p>In general, configuration errors should not be thrown until the
@@ -35,39 +34,39 @@ import org.junit.platform.launcher.LauncherDiscoveryRequest;
 class InvalidLifecycleMethodConfigurationTests extends AbstractJupiterTestEngineTests {
 
 	@Test
-	void executeValidTestCaseAlongsideTestCaseWithInvalidBeforeAllDeclaration() {
-		assertExecutionResults(TestCaseWithInvalidBeforeAllMethod.class);
+	void executeValidTestCaseAlongsideTestCaseWithInvalidNonStaticBeforeAllDeclaration() {
+		assertContainerFailed(TestCaseWithInvalidNonStaticBeforeAllMethod.class);
 	}
 
 	@Test
-	void executeValidTestCaseAlongsideTestCaseWithInvalidAfterAllDeclaration() {
-		assertExecutionResults(TestCaseWithInvalidAfterAllMethod.class);
+	void executeValidTestCaseAlongsideTestCaseWithInvalidNonStaticAfterAllDeclaration() {
+		assertContainerFailed(TestCaseWithInvalidNonStaticAfterAllMethod.class);
 	}
 
 	@Test
-	void executeValidTestCaseAlongsideTestCaseWithInvalidBeforeEachDeclaration() {
-		assertExecutionResults(TestCaseWithInvalidBeforeEachMethod.class);
+	void executeValidTestCaseAlongsideTestCaseWithInvalidStaticBeforeEachDeclaration() {
+		assertContainerFailed(TestCaseWithInvalidStaticBeforeEachMethod.class);
 	}
 
 	@Test
-	void executeValidTestCaseAlongsideTestCaseWithInvalidAfterEachDeclaration() {
-		assertExecutionResults(TestCaseWithInvalidAfterEachMethod.class);
+	void executeValidTestCaseAlongsideTestCaseWithInvalidStaticAfterEachDeclaration() {
+		assertContainerFailed(TestCaseWithInvalidStaticAfterEachMethod.class);
 	}
 
-	private void assertExecutionResults(Class<?> invalidTestClass) {
-		LauncherDiscoveryRequest request = request().selectors(selectClass(TestCase.class),
-			selectClass(invalidTestClass)).build();
-
-		ExecutionEventRecorder eventRecorder = executeTests(request);
+	private void assertContainerFailed(Class<?> invalidTestClass) {
+		EngineExecutionResults executionResults = executeTests(selectClass(TestCase.class),
+			selectClass(invalidTestClass));
+		Events containers = executionResults.containerEvents();
+		Events tests = executionResults.testEvents();
 
 		// @formatter:off
 		assertAll(
-			() -> assertEquals(3, eventRecorder.getContainerStartedCount(), "# containers started"),
-			() -> assertEquals(1, eventRecorder.getTestStartedCount(), "# tests started"),
-			() -> assertEquals(1, eventRecorder.getTestSuccessfulCount(), "# tests succeeded"),
-			() -> assertEquals(0, eventRecorder.getTestFailedCount(), "# tests failed"),
-			() -> assertEquals(3, eventRecorder.getContainerFinishedCount(), "# containers finished"),
-			() -> assertEquals(1, eventRecorder.getContainerFailedCount(), "# containers failed")
+			() -> assertEquals(3, containers.started().count(), "# containers started"),
+			() -> assertEquals(1, tests.started().count(), "# tests started"),
+			() -> assertEquals(1, tests.succeeded().count(), "# tests succeeded"),
+			() -> assertEquals(0, tests.failed().count(), "# tests failed"),
+			() -> assertEquals(3, containers.finished().count(), "# containers finished"),
+			() -> assertEquals(1, containers.failed().count(), "# containers failed")
 		);
 		// @formatter:on
 	}
@@ -81,7 +80,7 @@ class InvalidLifecycleMethodConfigurationTests extends AbstractJupiterTestEngine
 		}
 	}
 
-	static class TestCaseWithInvalidBeforeAllMethod {
+	static class TestCaseWithInvalidNonStaticBeforeAllMethod {
 
 		// must be static
 		@BeforeAll
@@ -93,7 +92,7 @@ class InvalidLifecycleMethodConfigurationTests extends AbstractJupiterTestEngine
 		}
 	}
 
-	static class TestCaseWithInvalidAfterAllMethod {
+	static class TestCaseWithInvalidNonStaticAfterAllMethod {
 
 		// must be static
 		@AfterAll
@@ -105,7 +104,7 @@ class InvalidLifecycleMethodConfigurationTests extends AbstractJupiterTestEngine
 		}
 	}
 
-	static class TestCaseWithInvalidBeforeEachMethod {
+	static class TestCaseWithInvalidStaticBeforeEachMethod {
 
 		// must NOT be static
 		@BeforeEach
@@ -117,7 +116,7 @@ class InvalidLifecycleMethodConfigurationTests extends AbstractJupiterTestEngine
 		}
 	}
 
-	static class TestCaseWithInvalidAfterEachMethod {
+	static class TestCaseWithInvalidStaticAfterEachMethod {
 
 		// must NOT be static
 		@AfterEach

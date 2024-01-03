@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.params;
@@ -18,6 +18,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
@@ -42,14 +43,15 @@ import org.junit.platform.commons.util.StringUtils;
  */
 class ParameterizedTestMethodContext {
 
-	private final List<ResolverType> resolverTypes;
+	private final Parameter[] parameters;
 	private final Resolver[] resolvers;
+	private final List<ResolverType> resolverTypes;
 
 	ParameterizedTestMethodContext(Method testMethod) {
-		Parameter[] parameters = testMethod.getParameters();
-		this.resolverTypes = new ArrayList<>(parameters.length);
-		this.resolvers = new Resolver[parameters.length];
-		for (Parameter parameter : parameters) {
+		this.parameters = testMethod.getParameters();
+		this.resolvers = new Resolver[this.parameters.length];
+		this.resolverTypes = new ArrayList<>(this.parameters.length);
+		for (Parameter parameter : this.parameters) {
 			this.resolverTypes.add(isAggregator(parameter) ? AGGREGATOR : CONVERTER);
 		}
 	}
@@ -100,7 +102,27 @@ class ParameterizedTestMethodContext {
 	 * context.
 	 */
 	int getParameterCount() {
-		return resolvers.length;
+		return parameters.length;
+	}
+
+	/**
+	 * Get the name of the {@link Parameter} with the supplied index, if
+	 * it is present and declared before the aggregators.
+	 *
+	 * @return an {@code Optional} containing the name of the parameter
+	 */
+	Optional<String> getParameterName(int parameterIndex) {
+		if (parameterIndex >= getParameterCount()) {
+			return Optional.empty();
+		}
+		Parameter parameter = this.parameters[parameterIndex];
+		if (!parameter.isNamePresent()) {
+			return Optional.empty();
+		}
+		if (hasAggregator() && parameterIndex >= indexOfFirstAggregator()) {
+			return Optional.empty();
+		}
+		return Optional.of(parameter.getName());
 	}
 
 	/**
@@ -139,8 +161,8 @@ class ParameterizedTestMethodContext {
 	 * Resolve the parameter for the supplied context using the supplied
 	 * arguments.
 	 */
-	Object resolve(ParameterContext parameterContext, Object[] arguments) {
-		return getResolver(parameterContext).resolve(parameterContext, arguments);
+	Object resolve(ParameterContext parameterContext, Object[] arguments, int invocationIndex) {
+		return getResolver(parameterContext).resolve(parameterContext, arguments, invocationIndex);
 	}
 
 	private Resolver getResolver(ParameterContext parameterContext) {
@@ -192,7 +214,7 @@ class ParameterizedTestMethodContext {
 
 	interface Resolver {
 
-		Object resolve(ParameterContext parameterContext, Object[] arguments);
+		Object resolve(ParameterContext parameterContext, Object[] arguments, int invocationIndex);
 
 	}
 
@@ -207,7 +229,7 @@ class ParameterizedTestMethodContext {
 		}
 
 		@Override
-		public Object resolve(ParameterContext parameterContext, Object[] arguments) {
+		public Object resolve(ParameterContext parameterContext, Object[] arguments, int invocationIndex) {
 			Object argument = arguments[parameterContext.getIndex()];
 			try {
 				return this.argumentConverter.convert(argument, parameterContext);
@@ -230,8 +252,8 @@ class ParameterizedTestMethodContext {
 		}
 
 		@Override
-		public Object resolve(ParameterContext parameterContext, Object[] arguments) {
-			ArgumentsAccessor accessor = new DefaultArgumentsAccessor(arguments);
+		public Object resolve(ParameterContext parameterContext, Object[] arguments, int invocationIndex) {
+			ArgumentsAccessor accessor = new DefaultArgumentsAccessor(parameterContext, invocationIndex, arguments);
 			try {
 				return this.argumentsAggregator.aggregateArguments(accessor, parameterContext);
 			}

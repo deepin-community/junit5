@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.runner;
@@ -25,12 +25,12 @@ import java.util.function.Predicate;
 import org.junit.platform.commons.util.AnnotationUtils;
 import org.junit.platform.commons.util.StringUtils;
 import org.junit.platform.engine.TestSource;
+import org.junit.platform.engine.UniqueId;
 import org.junit.platform.engine.support.descriptor.ClassSource;
 import org.junit.platform.engine.support.descriptor.MethodSource;
 import org.junit.platform.launcher.TestIdentifier;
 import org.junit.platform.launcher.TestPlan;
 import org.junit.platform.suite.api.SuiteDisplayName;
-import org.junit.platform.suite.api.UseTechnicalNames;
 import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
 
@@ -40,18 +40,23 @@ import org.junit.runner.manipulation.Filter;
 class JUnitPlatformTestTree {
 
 	private final Map<TestIdentifier, Description> descriptions = new HashMap<>();
-	private final TestPlan plan;
+	private final TestPlan testPlan;
 	private final Function<TestIdentifier, String> nameExtractor;
 	private final Description suiteDescription;
 
-	JUnitPlatformTestTree(TestPlan plan, Class<?> testClass) {
-		this.plan = plan;
+	JUnitPlatformTestTree(TestPlan testPlan, Class<?> testClass) {
+		this.testPlan = testPlan;
 		this.nameExtractor = useTechnicalNames(testClass) ? this::getTechnicalName : TestIdentifier::getDisplayName;
-		this.suiteDescription = generateSuiteDescription(plan, testClass);
+		this.suiteDescription = generateSuiteDescription(testPlan, testClass);
 	}
 
+	public TestPlan getTestPlan() {
+		return testPlan;
+	}
+
+	@SuppressWarnings("deprecation")
 	private static boolean useTechnicalNames(Class<?> testClass) {
-		return testClass.isAnnotationPresent(UseTechnicalNames.class);
+		return testClass.isAnnotationPresent(org.junit.platform.suite.api.UseTechnicalNames.class);
 	}
 
 	Description getSuiteDescription() {
@@ -82,10 +87,9 @@ class JUnitPlatformTestTree {
 		testPlan.getRoots().forEach(testIdentifier -> buildDescription(testIdentifier, suiteDescription, testPlan));
 	}
 
-	void addDynamicDescription(TestIdentifier newIdentifier, String parentId) {
-		Description parent = getDescription(this.plan.getTestIdentifier(parentId));
-		this.plan.add(newIdentifier);
-		buildDescription(newIdentifier, parent, this.plan);
+	void addDynamicDescription(TestIdentifier newIdentifier, UniqueId parentId) {
+		Description parent = getDescription(this.testPlan.getTestIdentifier(parentId));
+		buildDescription(newIdentifier, parent, this.testPlan);
 	}
 
 	private void buildDescription(TestIdentifier identifier, Description parent, TestPlan testPlan) {
@@ -100,9 +104,9 @@ class JUnitPlatformTestTree {
 		String name = nameExtractor.apply(identifier);
 		if (identifier.isTest()) {
 			String containerName = testPlan.getParent(identifier).map(nameExtractor).orElse("<unrooted>");
-			return Description.createTestDescription(containerName, name, identifier.getUniqueId());
+			return Description.createTestDescription(containerName, name, identifier.getUniqueIdObject());
 		}
-		return Description.createSuiteDescription(name, identifier.getUniqueId());
+		return Description.createSuiteDescription(name, identifier.getUniqueIdObject());
 	}
 
 	private String getTechnicalName(TestIdentifier testIdentifier) {
@@ -128,7 +132,7 @@ class JUnitPlatformTestTree {
 
 	Set<TestIdentifier> getTestsInSubtree(TestIdentifier ancestor) {
 		// @formatter:off
-		return plan.getDescendants(ancestor).stream()
+		return testPlan.getDescendants(ancestor).stream()
 				.filter(TestIdentifier::isTest)
 				.collect(toCollection(LinkedHashSet::new));
 		// @formatter:on
@@ -145,7 +149,7 @@ class JUnitPlatformTestTree {
 
 	private Predicate<? super TestIdentifier> isALeaf(Set<TestIdentifier> identifiers) {
 		return testIdentifier -> {
-			Set<TestIdentifier> descendants = plan.getDescendants(testIdentifier);
+			Set<TestIdentifier> descendants = testPlan.getDescendants(testIdentifier);
 			return identifiers.stream().noneMatch(descendants::contains);
 		};
 	}

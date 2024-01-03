@@ -1,4 +1,4 @@
-junit-jupiter-engine/build/
-junit-platform-surefire-provider/build/
-junit-vintage-engine/build/
-debian/junit-jupiter.jar
+junit-jupiter-params/dependency-reduced-pom.xml
+junit-platform-console-standalone/dependency-reduced-pom.xml
+junit-platform-console/dependency-reduced-pom.xml
+junit-platform-reporting/dependency-reduced-pom.xml

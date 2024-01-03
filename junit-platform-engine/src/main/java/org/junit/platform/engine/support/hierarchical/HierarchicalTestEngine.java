@@ -1,17 +1,17 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.engine.support.hierarchical;
 
-import static org.apiguardian.api.API.Status.EXPERIMENTAL;
 import static org.apiguardian.api.API.Status.MAINTAINED;
+import static org.apiguardian.api.API.Status.STABLE;
 
 import org.apiguardian.api.API;
 import org.junit.platform.commons.JUnitException;
@@ -28,6 +28,9 @@ import org.junit.platform.engine.TestEngine;
  */
 @API(status = MAINTAINED, since = "1.0")
 public abstract class HierarchicalTestEngine<C extends EngineExecutionContext> implements TestEngine {
+
+	public HierarchicalTestEngine() {
+	}
 
 	/**
 	 * Create an {@linkplain #createExecutorService(ExecutionRequest) executor
@@ -68,11 +71,11 @@ public abstract class HierarchicalTestEngine<C extends EngineExecutionContext> i
 	 * {@link SameThreadHierarchicalTestExecutorService}.
 	 *
 	 * @param request the request about to be executed
+	 * @since 1.3
 	 * @see ForkJoinPoolHierarchicalTestExecutorService
 	 * @see SameThreadHierarchicalTestExecutorService
-	 * @since 1.3
 	 */
-	@API(status = EXPERIMENTAL, since = "1.3")
+	@API(status = STABLE, since = "1.10")
 	protected HierarchicalTestExecutorService createExecutorService(ExecutionRequest request) {
 		return new SameThreadHierarchicalTestExecutorService();
 	}
@@ -91,11 +94,11 @@ public abstract class HierarchicalTestEngine<C extends EngineExecutionContext> i
 	 * {@link OpenTest4JAwareThrowableCollector}.
 	 *
 	 * @param request the request about to be executed
+	 * @since 1.3
 	 * @see OpenTest4JAwareThrowableCollector
 	 * @see ThrowableCollector
-	 * @since 1.3
 	 */
-	@API(status = EXPERIMENTAL, since = "1.3")
+	@API(status = STABLE, since = "1.10")
 	protected ThrowableCollector.Factory createThrowableCollectorFactory(ExecutionRequest request) {
 		return OpenTest4JAwareThrowableCollector::new;
 	}

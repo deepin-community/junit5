@@ -1,29 +1,29 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.launcher.tagexpression;
 
-import static java.util.Collections.singleton;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.platform.engine.TestTag.create;
 import static org.junit.platform.launcher.tagexpression.TagExpressions.and;
+import static org.junit.platform.launcher.tagexpression.TagExpressions.any;
+import static org.junit.platform.launcher.tagexpression.TagExpressions.none;
 import static org.junit.platform.launcher.tagexpression.TagExpressions.not;
 import static org.junit.platform.launcher.tagexpression.TagExpressions.or;
 import static org.junit.platform.launcher.tagexpression.TagExpressions.tag;
 
-import java.util.Collections;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
-import org.junit.platform.commons.util.PreconditionViolationException;
+import org.junit.platform.commons.PreconditionViolationException;
 import org.junit.platform.engine.TestTag;
 
 class TagExpressionsTests {
@@ -45,10 +45,10 @@ class TagExpressionsTests {
 
 	@Test
 	void tagEvaluation() {
-		TagExpression tagExpression = tag("foo");
+		var tagExpression = tag("foo");
 
-		assertThat(tagExpression.evaluate(singleton(create("foo")))).isTrue();
-		assertThat(tagExpression.evaluate(singleton(create("not_foo")))).isFalse();
+		assertThat(tagExpression.evaluate(Set.of(create("foo")))).isTrue();
+		assertThat(tagExpression.evaluate(Set.of(create("not_foo")))).isFalse();
 	}
 
 	@Test
@@ -60,8 +60,8 @@ class TagExpressionsTests {
 
 	@Test
 	void notEvaluation() {
-		assertThat(not(True).evaluate(anyTestTags())).isFalse();
-		assertThat(not(False).evaluate(anyTestTags())).isTrue();
+		assertThat(not(True).evaluate(Set.of())).isFalse();
+		assertThat(not(False).evaluate(Set.of())).isTrue();
 	}
 
 	@Test
@@ -71,9 +71,9 @@ class TagExpressionsTests {
 
 	@Test
 	void andEvaluation() {
-		assertThat(and(True, True).evaluate(anyTestTags())).isTrue();
-		assertThat(and(True, False).evaluate(anyTestTags())).isFalse();
-		assertThat(and(False, onEvaluateThrow("should not be evaluated")).evaluate(anyTestTags())).isFalse();
+		assertThat(and(True, True).evaluate(Set.of())).isTrue();
+		assertThat(and(True, False).evaluate(Set.of())).isFalse();
+		assertThat(and(False, onEvaluateThrow()).evaluate(Set.of())).isFalse();
 	}
 
 	@Test
@@ -83,18 +83,27 @@ class TagExpressionsTests {
 
 	@Test
 	void orEvaluation() {
-		assertThat(or(False, False).evaluate(anyTestTags())).isFalse();
-		assertThat(or(True, onEvaluateThrow("should not be evaluated")).evaluate(anyTestTags())).isTrue();
-		assertThat(or(False, True).evaluate(anyTestTags())).isTrue();
+		assertThat(or(False, False).evaluate(Set.of())).isFalse();
+		assertThat(or(True, onEvaluateThrow()).evaluate(Set.of())).isTrue();
+		assertThat(or(False, True).evaluate(Set.of())).isTrue();
 	}
 
-	private TagExpression onEvaluateThrow(String message) {
+	@Test
+	void anyEvaluation() {
+		assertThat(any().evaluate(Set.of())).isFalse();
+		assertThat(any().evaluate(Set.of(TestTag.create("foo")))).isTrue();
+	}
+
+	@Test
+	void noneEvaluation() {
+		assertThat(none().evaluate(Set.of())).isTrue();
+		assertThat(none().evaluate(Set.of(TestTag.create("foo")))).isFalse();
+	}
+
+	private TagExpression onEvaluateThrow() {
 		return tags -> {
-			throw new RuntimeException(message);
+			throw new RuntimeException("should not be evaluated");
 		};
 	}
 
-	private static Set<TestTag> anyTestTags() {
-		return Collections.emptySet();
-	}
 }

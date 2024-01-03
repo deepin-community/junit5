@@ -1,6 +1,6 @@
-Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: JUnit 5
-Upstream-Source: https://github.com/junit-team/junit5
+Source: https://github.com/junit-team/junit5
 Files-Excluded: gradlew*
                 gradle/wrapper
 
@@ -16,16 +16,11 @@ Copyright: 2015-2019, Sam Brannen
            2016-2017, Jonathan Bluett-Duncan
            2015-2016, Jens Schauder
            2016-2018, Nicolai Parlog
+           2015-2023, the original author or authors
 License: EPL-2.0
 
-Files: junit-platform-surefire-provider/*
-Copyright: 2015-2018, the original author or authors
-License: Apache-2.0
- On Debian GNU/Linux system you can find the complete text of the
- Apache-2.0 license in '/usr/share/common-licenses/Apache-2.0'
-
 Files: debian/*
-Copyright: 2019, Emmanuel Bourg
+Copyright: 2019-2023, Emmanuel Bourg
 License: EPL-2.0
 
 License: EPL-2.0

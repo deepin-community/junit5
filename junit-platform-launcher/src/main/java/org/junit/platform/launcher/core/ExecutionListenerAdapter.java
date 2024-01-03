@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.launcher.core;
@@ -37,7 +37,7 @@ class ExecutionListenerAdapter implements EngineExecutionListener {
 	@Override
 	public void dynamicTestRegistered(TestDescriptor testDescriptor) {
 		TestIdentifier testIdentifier = TestIdentifier.from(testDescriptor);
-		this.testPlan.add(testIdentifier);
+		this.testPlan.addInternal(testIdentifier);
 		this.testExecutionListener.dynamicTestRegistered(testIdentifier);
 	}
 
@@ -62,7 +62,7 @@ class ExecutionListenerAdapter implements EngineExecutionListener {
 	}
 
 	private TestIdentifier getTestIdentifier(TestDescriptor testDescriptor) {
-		return this.testPlan.getTestIdentifier(testDescriptor.getUniqueId().toString());
+		return this.testPlan.getTestIdentifier(testDescriptor.getUniqueId());
 	}
 
 }

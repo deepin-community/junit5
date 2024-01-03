@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.commons.util;
@@ -13,13 +13,17 @@ package org.junit.platform.commons.util;
 import static java.util.Arrays.asList;
 import static org.apiguardian.api.API.Status.INTERNAL;
 import static org.junit.platform.commons.util.CollectionUtils.toUnmodifiableList;
+import static org.junit.platform.commons.util.ReflectionUtils.isInnerClass;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Inherited;
 import java.lang.annotation.Repeatable;
 import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -29,6 +33,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
 import org.apiguardian.api.API;
@@ -38,7 +43,7 @@ import org.junit.platform.commons.util.ReflectionUtils.HierarchyTraversalMode;
 /**
  * Collection of utilities for working with {@linkplain Annotation annotations}.
  *
- * <h3>DISCLAIMER</h3>
+ * <h2>DISCLAIMER</h2>
  *
  * <p>These utilities are intended solely for usage within the JUnit framework
  * itself. <strong>Any usage by external parties is not supported.</strong>
@@ -59,6 +64,9 @@ public final class AnnotationUtils {
 		/* no-op */
 	}
 
+	private static final ConcurrentHashMap<Class<? extends Annotation>, Boolean> repeatableAnnotationContainerCache = //
+		new ConcurrentHashMap<>(16);
+
 	/**
 	 * Determine if an annotation of {@code annotationType} is either
 	 * <em>present</em> or <em>meta-present</em> on the supplied optional
@@ -74,10 +82,22 @@ public final class AnnotationUtils {
 	}
 
 	/**
+	 * @since 1.8
+	 * @see #findAnnotation(Parameter, int, Class)
+	 */
+	public static boolean isAnnotated(Parameter parameter, int index, Class<? extends Annotation> annotationType) {
+		return findAnnotation(parameter, index, annotationType).isPresent();
+	}
+
+	/**
 	 * Determine if an annotation of {@code annotationType} is either
 	 * <em>present</em> or <em>meta-present</em> on the supplied
 	 * {@code element}.
 	 *
+	 * @param element the element on which to search for the annotation; may be
+	 * {@code null}
+	 * @param annotationType the annotation type to search for; never {@code null}
+	 * @return {@code true} if the annotation is present or meta-present
 	 * @see #findAnnotation(AnnotatedElement, Class)
 	 * @see org.junit.platform.commons.support.AnnotationSupport#isAnnotated(AnnotatedElement, Class)
 	 */
@@ -95,15 +115,24 @@ public final class AnnotationUtils {
 			return Optional.empty();
 		}
 
-		boolean inherited = annotationType.isAnnotationPresent(Inherited.class);
+		return findAnnotation(element.get(), annotationType);
+	}
 
-		return findAnnotation(element.get(), annotationType, inherited, new HashSet<>());
+	/**
+	 * @since 1.8
+	 * @see #findAnnotation(AnnotatedElement, Class)
+	 */
+	public static <A extends Annotation> Optional<A> findAnnotation(Parameter parameter, int index,
+			Class<A> annotationType) {
+
+		return findAnnotation(getEffectiveAnnotatedParameter(parameter, index), annotationType);
 	}
 
 	/**
 	 * @see org.junit.platform.commons.support.AnnotationSupport#findAnnotation(AnnotatedElement, Class)
 	 */
 	public static <A extends Annotation> Optional<A> findAnnotation(AnnotatedElement element, Class<A> annotationType) {
+		Preconditions.notNull(annotationType, "annotationType must not be null");
 		boolean inherited = annotationType.isAnnotationPresent(Inherited.class);
 		return findAnnotation(element, annotationType, inherited, new HashSet<>());
 	}
@@ -174,6 +203,69 @@ public final class AnnotationUtils {
 			}
 		}
 		return Optional.empty();
+	}
+
+	/**
+	 * Find the first annotation of the specified type that is either
+	 * <em>directly present</em>, <em>meta-present</em>, or <em>indirectly
+	 * present</em> on the supplied class, optionally searching recursively
+	 * through the enclosing class hierarchy if not found on the supplied class.
+	 *
+	 * <p>The enclosing class hierarchy will only be searched above an <em>inner
+	 * class</em> (i.e., a non-static member class).
+	 *
+	 * @param <A> the annotation type
+	 * @param clazz the class on which to search for the annotation; may be {@code null}
+	 * @param annotationType the annotation type to search for; never {@code null}
+	 * @param searchEnclosingClasses whether the enclosing class hierarchy should
+	 * be searched
+	 * @return an {@code Optional} containing the annotation; never {@code null} but
+	 * potentially empty
+	 * @since 1.8
+	 * @see #findAnnotation(AnnotatedElement, Class)
+	 */
+	public static <A extends Annotation> Optional<A> findAnnotation(Class<?> clazz, Class<A> annotationType,
+			boolean searchEnclosingClasses) {
+
+		Preconditions.notNull(annotationType, "annotationType must not be null");
+
+		if (!searchEnclosingClasses) {
+			return findAnnotation(clazz, annotationType);
+		}
+
+		Class<?> candidate = clazz;
+		while (candidate != null) {
+			Optional<A> annotation = findAnnotation(candidate, annotationType);
+			if (annotation.isPresent()) {
+				return annotation;
+			}
+			candidate = (isInnerClass(candidate) ? candidate.getEnclosingClass() : null);
+		}
+		return Optional.empty();
+	}
+
+	/**
+	 * @since 1.5
+	 * @see org.junit.platform.commons.support.AnnotationSupport#findRepeatableAnnotations(Optional, Class)
+	 */
+	public static <A extends Annotation> List<A> findRepeatableAnnotations(Optional<? extends AnnotatedElement> element,
+			Class<A> annotationType) {
+
+		if (element == null || !element.isPresent()) {
+			return Collections.emptyList();
+		}
+
+		return findRepeatableAnnotations(element.get(), annotationType);
+	}
+
+	/**
+	 * @since 1.8
+	 * @see #findRepeatableAnnotations(AnnotatedElement, Class)
+	 */
+	public static <A extends Annotation> List<A> findRepeatableAnnotations(Parameter parameter, int index,
+			Class<A> annotationType) {
+
+		return findRepeatableAnnotations(getEffectiveAnnotatedParameter(parameter, index), annotationType);
 	}
 
 	/**
@@ -249,13 +341,23 @@ public final class AnnotationUtils {
 					// Note: it's not a legitimate containing annotation type if it doesn't declare
 					// a 'value' attribute that returns an array of the contained annotation type.
 					// See https://docs.oracle.com/javase/specs/jls/se8/html/jls-9.html#jls-9.6.3
-					Method method = ReflectionUtils.getMethod(containerType, "value").orElseThrow(
-						() -> new JUnitException(String.format(
+					Method method = ReflectionUtils.tryToGetMethod(containerType, "value").getOrThrow(
+						cause -> new JUnitException(String.format(
 							"Container annotation type '%s' must declare a 'value' attribute of type %s[].",
-							containerType, annotationType)));
+							containerType, annotationType), cause));
 
 					Annotation[] containedAnnotations = (Annotation[]) ReflectionUtils.invokeMethod(method, candidate);
 					found.addAll((Collection<? extends A>) asList(containedAnnotations));
+				}
+				// Nested container annotation?
+				else if (isRepeatableAnnotationContainer(candidateAnnotationType)) {
+					Method method = ReflectionUtils.tryToGetMethod(candidateAnnotationType, "value").toOptional().get();
+					Annotation[] containedAnnotations = (Annotation[]) ReflectionUtils.invokeMethod(method, candidate);
+
+					for (Annotation containedAnnotation : containedAnnotations) {
+						findRepeatableAnnotations(containedAnnotation.getClass(), annotationType, containerType,
+							inherited, found, visited);
+					}
 				}
 				// Otherwise search recursively through the meta-annotation hierarchy...
 				else {
@@ -264,6 +366,75 @@ public final class AnnotationUtils {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Determine if the supplied annotation type is a container for a repeatable
+	 * annotation.
+	 *
+	 * @since 1.5
+	 */
+	private static boolean isRepeatableAnnotationContainer(Class<? extends Annotation> candidateContainerType) {
+		return repeatableAnnotationContainerCache.computeIfAbsent(candidateContainerType, candidate -> {
+			// @formatter:off
+			Repeatable repeatable = Arrays.stream(candidate.getMethods())
+					.filter(attribute -> attribute.getName().equals("value") && attribute.getReturnType().isArray())
+					.findFirst()
+					.map(attribute -> attribute.getReturnType().getComponentType().getAnnotation(Repeatable.class))
+					.orElse(null);
+			// @formatter:on
+
+			return repeatable != null && candidate.equals(repeatable.value());
+		});
+	}
+
+	/**
+	 * Due to a bug in {@code javac} on JDK versions prior to JDK 9, looking up
+	 * annotations directly on a {@link Parameter} will fail for inner class
+	 * constructors.
+	 *
+	 * <h3>Bug in {@code javac} on JDK versions prior to JDK 9</h3>
+	 *
+	 * <p>The parameter annotations array in the compiled byte code for the user's
+	 * class excludes an entry for the implicit <em>enclosing instance</em>
+	 * parameter for an inner class constructor.
+	 *
+	 * <h3>Workaround</h3>
+	 *
+	 * <p>This method provides a workaround for this off-by-one error by helping
+	 * JUnit maintainers and extension authors to access annotations on the preceding
+	 * {@link Parameter} object (i.e., {@code index - 1}). If the supplied
+	 * {@code index} is zero in such situations this method will return {@code null}
+	 * since the parameter for the implicit <em>enclosing instance</em> will never
+	 * be annotated.
+	 *
+	 * <h4>WARNING</h4>
+	 *
+	 * <p>The {@code AnnotatedElement} returned by this method should never be cast and
+	 * treated as a {@code Parameter} since the metadata (e.g., {@link Parameter#getName()},
+	 * {@link Parameter#getType()}, etc.) will not match those for the declared parameter
+	 * at the given index in an inner class constructor for code compiled with JDK 8.
+	 *
+	 * @return the supplied {@code Parameter}, or the <em>effective</em> {@code Parameter}
+	 * if the aforementioned bug is detected, or {@code null} if the bug is detected and
+	 * the supplied {@code index} is {@code 0}
+	 * @since 1.8
+	 */
+	private static AnnotatedElement getEffectiveAnnotatedParameter(Parameter parameter, int index) {
+		Preconditions.notNull(parameter, "Parameter must not be null");
+		Executable executable = parameter.getDeclaringExecutable();
+
+		if (executable instanceof Constructor && isInnerClass(executable.getDeclaringClass())
+				&& executable.getParameterAnnotations().length == executable.getParameterCount() - 1) {
+
+			if (index == 0) {
+				return null;
+			}
+
+			return executable.getParameters()[index - 1];
+		}
+
+		return parameter;
 	}
 
 	/**
@@ -284,11 +455,7 @@ public final class AnnotationUtils {
 	}
 
 	/**
-	 * Find all {@linkplain Field fields} of the supplied class or interface
-	 * that are annotated or <em>meta-annotated</em> with the specified
-	 * {@code annotationType} and match the specified {@code predicate}, using
-	 * top-down search semantics within the type hierarchy.
-	 *
+	 * @see org.junit.platform.commons.support.AnnotationSupport#findAnnotatedFields(Class, Class, Predicate)
 	 * @see #findAnnotatedFields(Class, Class, Predicate, HierarchyTraversalMode)
 	 */
 	public static List<Field> findAnnotatedFields(Class<?> clazz, Class<? extends Annotation> annotationType,

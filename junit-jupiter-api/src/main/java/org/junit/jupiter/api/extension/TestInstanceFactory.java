@@ -1,16 +1,16 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.api.extension;
 
-import static org.apiguardian.api.API.Status.EXPERIMENTAL;
+import static org.apiguardian.api.API.Status.STABLE;
 
 import org.apiguardian.api.API;
 
@@ -25,7 +25,7 @@ import org.apiguardian.api.API;
  * <p>Extensions that implement {@code TestInstanceFactory} must be registered
  * at the class level.
  *
- * <h3>Warning</h3>
+ * <h2>Warning</h2>
  *
  * <p>Only one {@code TestInstanceFactory} is allowed to be registered for any
  * given test class. Registering multiple factories for any single test class
@@ -37,7 +37,7 @@ import org.apiguardian.api.API;
  * user's responsibility to ensure that only a single {@code TestInstanceFactory}
  * is registered for any specific test class.
  *
- * <h3>Constructor Requirements</h3>
+ * <h2>Constructor Requirements</h2>
  *
  * <p>Consult the documentation in {@link Extension} for details on
  * constructor requirements.
@@ -46,10 +46,11 @@ import org.apiguardian.api.API;
  * @see #createTestInstance(TestInstanceFactoryContext, ExtensionContext)
  * @see TestInstanceFactoryContext
  * @see TestInstancePostProcessor
+ * @see TestInstancePreDestroyCallback
  * @see ParameterResolver
  */
 @FunctionalInterface
-@API(status = EXPERIMENTAL, since = "5.3")
+@API(status = STABLE, since = "5.7")
 public interface TestInstanceFactory extends Extension {
 
 	/**

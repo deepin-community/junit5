@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.api.condition;
@@ -13,6 +13,7 @@ package org.junit.jupiter.api.condition;
 import static org.apiguardian.api.API.Status.STABLE;
 
 import java.lang.reflect.Method;
+import java.util.EnumSet;
 
 import org.apiguardian.api.API;
 import org.junit.platform.commons.logging.Logger;
@@ -33,9 +34,22 @@ import org.junit.platform.commons.util.StringUtils;
  * @see #JAVA_9
  * @see #JAVA_10
  * @see #JAVA_11
+ * @see #JAVA_12
+ * @see #JAVA_13
+ * @see #JAVA_14
+ * @see #JAVA_15
+ * @see #JAVA_16
+ * @see #JAVA_17
+ * @see #JAVA_18
+ * @see #JAVA_19
+ * @see #JAVA_20
+ * @see #JAVA_21
+ * @see #JAVA_22
  * @see #OTHER
  * @see EnabledOnJre
  * @see DisabledOnJre
+ * @see EnabledForJreRange
+ * @see DisabledForJreRange
  */
 @API(status = STABLE, since = "5.1")
 public enum JRE {
@@ -61,8 +75,100 @@ public enum JRE {
 	JAVA_11,
 
 	/**
+	 * Java 12.
+	 *
+	 * @since 5.4
+	 */
+	@API(status = STABLE, since = "5.4")
+	JAVA_12,
+
+	/**
+	 * Java 13.
+	 *
+	 * @since 5.4
+	 */
+	@API(status = STABLE, since = "5.4")
+	JAVA_13,
+
+	/**
+	 * Java 14.
+	 *
+	 * @since 5.5
+	 */
+	@API(status = STABLE, since = "5.5")
+	JAVA_14,
+
+	/**
+	 * Java 15.
+	 *
+	 * @since 5.6
+	 */
+	@API(status = STABLE, since = "5.6")
+	JAVA_15,
+
+	/**
+	 * Java 16.
+	 *
+	 * @since 5.7
+	 */
+	@API(status = STABLE, since = "5.7")
+	JAVA_16,
+
+	/**
+	 * Java 17.
+	 *
+	 * @since 5.7.1
+	 */
+	@API(status = STABLE, since = "5.7.1")
+	JAVA_17,
+
+	/**
+	 * Java 18.
+	 *
+	 * @since 5.8.1
+	 */
+	@API(status = STABLE, since = "5.8.1")
+	JAVA_18,
+
+	/**
+	 * Java 19.
+	 *
+	 * @since 5.9
+	 */
+	@API(status = STABLE, since = "5.9")
+	JAVA_19,
+
+	/**
+	 * Java 20.
+	 *
+	 * @since 5.9
+	 */
+	@API(status = STABLE, since = "5.9")
+	JAVA_20,
+
+	/**
+	 * Java 21.
+	 *
+	 * @since 5.9.2
+	 */
+	@API(status = STABLE, since = "5.9.2")
+	JAVA_21,
+
+	/**
+	 * Java 22.
+	 *
+	 * @since 5.10
+	 */
+	@API(status = STABLE, since = "5.10")
+	JAVA_22,
+
+	/**
 	 * A JRE version other than {@link #JAVA_8}, {@link #JAVA_9},
-	 * {@link #JAVA_10}, or {@link #JAVA_11}.
+	 * {@link #JAVA_10}, {@link #JAVA_11}, {@link #JAVA_12},
+	 * {@link #JAVA_13}, {@link #JAVA_14}, {@link #JAVA_15},
+	 * {@link #JAVA_16}, {@link #JAVA_17}, {@link #JAVA_18},
+	 * {@link #JAVA_19}, {@link #JAVA_20}, {@link #JAVA_21}, or
+	 * {@link #JAVA_22}.
 	 */
 	OTHER;
 
@@ -98,6 +204,28 @@ public enum JRE {
 					return JAVA_10;
 				case 11:
 					return JAVA_11;
+				case 12:
+					return JAVA_12;
+				case 13:
+					return JAVA_13;
+				case 14:
+					return JAVA_14;
+				case 15:
+					return JAVA_15;
+				case 16:
+					return JAVA_16;
+				case 17:
+					return JAVA_17;
+				case 18:
+					return JAVA_18;
+				case 19:
+					return JAVA_19;
+				case 20:
+					return JAVA_20;
+				case 21:
+					return JAVA_21;
+				case 22:
+					return JAVA_22;
 				default:
 					return OTHER;
 			}
@@ -112,10 +240,26 @@ public enum JRE {
 
 	/**
 	 * @return {@code true} if <em>this</em> {@code JRE} is known to be the
-	 * Java Runtime Environment version for the currently executing JVM
+	 * Java Runtime Environment version for the currently executing JVM or if
+	 * the version is {@link #OTHER}
 	 */
 	public boolean isCurrentVersion() {
 		return this == CURRENT_VERSION;
+	}
+
+	/**
+	 * @return the {@link JRE} for the currently executing JVM, potentially
+	 * {@link #OTHER}
+	 *
+	 * @since 5.7
+	 */
+	@API(status = STABLE, since = "5.7")
+	public static JRE currentVersion() {
+		return CURRENT_VERSION;
+	}
+
+	static boolean isCurrentVersionWithinRange(JRE min, JRE max) {
+		return EnumSet.range(min, max).contains(CURRENT_VERSION);
 	}
 
 }

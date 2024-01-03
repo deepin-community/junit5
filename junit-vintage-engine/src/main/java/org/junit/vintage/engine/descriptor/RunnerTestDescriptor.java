@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.vintage.engine.descriptor;
@@ -13,10 +13,15 @@ package org.junit.vintage.engine.descriptor;
 import static java.util.Collections.singletonList;
 import static org.apiguardian.api.API.Status.INTERNAL;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import org.apiguardian.api.API;
+import org.junit.platform.commons.JUnitException;
 import org.junit.platform.commons.logging.Logger;
 import org.junit.platform.commons.logging.LoggerFactory;
 import org.junit.platform.engine.UniqueId;
@@ -36,13 +41,22 @@ public class RunnerTestDescriptor extends VintageTestDescriptor {
 
 	private static final Logger logger = LoggerFactory.getLogger(RunnerTestDescriptor.class);
 
-	private final Runner runner;
 	private final Set<Description> rejectedExclusions = new HashSet<>();
+	private Runner runner;
+	private final boolean ignored;
 	private boolean wasFiltered;
+	private List<Filter> filters = new ArrayList<>();
 
-	public RunnerTestDescriptor(UniqueId uniqueId, Class<?> testClass, Runner runner) {
+	public RunnerTestDescriptor(UniqueId uniqueId, Class<?> testClass, Runner runner, boolean ignored) {
 		super(uniqueId, runner.getDescription(), testClass.getSimpleName(), ClassSource.from(testClass));
 		this.runner = runner;
+		this.ignored = ignored;
+	}
+
+	@Override
+	public String getLegacyReportingName() {
+		return getSource().map(source -> ((ClassSource) source).getClassName()) //
+				.orElseThrow(() -> new JUnitException("source should have been present"));
 	}
 
 	public Request toRequest() {
@@ -102,15 +116,49 @@ public class RunnerTestDescriptor extends VintageTestDescriptor {
 
 	private void logIncompleteFiltering() {
 		if (runner instanceof Filterable) {
-			logger.warn(() -> "Runner " + runner.getClass().getName() //
-					+ " (used on " + getDescription().getTestClass()
-					+ ") was not able to satisfy all filter requests.");
+			logger.warn(() -> "Runner " + getRunnerToReport().getClass().getName() //
+					+ " (used on class " + getLegacyReportingName() + ") was not able to satisfy all filter requests.");
 		}
 		else {
-			logger.warn(() -> "Runner " + runner.getClass().getName() //
-					+ " (used on " + getDescription().getTestClass() + ") does not support filtering" //
-					+ " and will therefore be run completely.");
+			warnAboutUnfilterableRunner();
 		}
+	}
+
+	private void warnAboutUnfilterableRunner() {
+		logger.warn(() -> "Runner " + getRunnerToReport().getClass().getName() //
+				+ " (used on class " + getLegacyReportingName() + ") does not support filtering" //
+				+ " and will therefore be run completely.");
+	}
+
+	public Optional<List<Filter>> getFilters() {
+		return Optional.ofNullable(filters);
+	}
+
+	public void clearFilters() {
+		this.filters = null;
+	}
+
+	public void applyFilters(Consumer<RunnerTestDescriptor> childrenCreator) {
+		if (filters != null && !filters.isEmpty()) {
+			if (runner instanceof Filterable) {
+				this.runner = toRequest().filterWith(new OrFilter(filters)).getRunner();
+				this.description = runner.getDescription();
+				this.children.clear();
+				childrenCreator.accept(this);
+			}
+			else {
+				warnAboutUnfilterableRunner();
+			}
+		}
+		clearFilters();
+	}
+
+	private Runner getRunnerToReport() {
+		return (runner instanceof RunnerDecorator) ? ((RunnerDecorator) runner).getDecoratedRunner() : runner;
+	}
+
+	public boolean isIgnored() {
+		return ignored;
 	}
 
 	private static class ExcludeDescriptionFilter extends Filter {

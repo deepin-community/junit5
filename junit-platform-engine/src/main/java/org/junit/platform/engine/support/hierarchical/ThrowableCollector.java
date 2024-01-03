@@ -1,17 +1,16 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.engine.support.hierarchical;
 
 import static org.apiguardian.api.API.Status.MAINTAINED;
-import static org.junit.platform.commons.util.BlacklistedExceptions.rethrowIfBlacklisted;
 import static org.junit.platform.engine.TestExecutionResult.aborted;
 import static org.junit.platform.engine.TestExecutionResult.failed;
 import static org.junit.platform.engine.TestExecutionResult.successful;
@@ -21,6 +20,7 @@ import java.util.function.Predicate;
 import org.apiguardian.api.API;
 import org.junit.platform.commons.util.ExceptionUtils;
 import org.junit.platform.commons.util.Preconditions;
+import org.junit.platform.commons.util.UnrecoverableExceptions;
 import org.junit.platform.engine.TestExecutionResult;
 
 /**
@@ -34,9 +34,10 @@ import org.junit.platform.engine.TestExecutionResult;
  * {@linkplain Throwable#addSuppressed(Throwable) suppressed} {@code Throwables}
  * of the first {@code Throwable} that failed execution.
  *
- * @since 5.3
+ * @since 1.3
+ * @see OpenTest4JAwareThrowableCollector
  */
-@API(status = MAINTAINED, since = "5.3")
+@API(status = MAINTAINED, since = "1.3")
 public class ThrowableCollector {
 
 	private final Predicate<? super Throwable> abortedExecutionPredicate;
@@ -60,7 +61,7 @@ public class ThrowableCollector {
 	 * Execute the supplied {@link Executable} and collect any {@link Throwable}
 	 * thrown during the execution.
 	 *
-	 * <p>If the {@code Executable} throws a <em>blacklisted</em> exception
+	 * <p>If the {@code Executable} throws an <em>unrecoverable</em> exception
 	 * &mdash; for example, an {@link OutOfMemoryError} &mdash; this method will
 	 * rethrow it.
 	 *
@@ -72,7 +73,7 @@ public class ThrowableCollector {
 			executable.execute();
 		}
 		catch (Throwable t) {
-			rethrowIfBlacklisted(t);
+			UnrecoverableExceptions.rethrowIfUnrecoverable(t);
 			add(t);
 		}
 	}
@@ -169,8 +170,10 @@ public class ThrowableCollector {
 	 * {@linkplain TestExecutionResult#failed failed} if it <em>failed</em>
 	 * execution; and {@linkplain TestExecutionResult#successful successful}
 	 * otherwise
+	 * @since 1.6
 	 */
-	TestExecutionResult toTestExecutionResult() {
+	@API(status = MAINTAINED, since = "1.6")
+	public TestExecutionResult toTestExecutionResult() {
 		if (isEmpty()) {
 			return successful();
 		}

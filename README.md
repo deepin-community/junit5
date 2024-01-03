@@ -1,11 +1,12 @@
-# JUnit 5
+# <img src="https://junit.org/junit5/assets/img/junit5-logo.png" align="right" width="100">JUnit 5
 
-This repository is the home of the next generation of JUnit, _JUnit 5_.
+This repository is the home of _JUnit 5_.
+
+[![Support JUnit](https://img.shields.io/badge/%F0%9F%92%9A-Support%20JUnit-brightgreen.svg)](https://junit.org/sponsoring)
 
 ## Latest Releases
 
-- General Availability (GA): [JUnit 5.3.2](https://github.com/junit-team/junit5/releases/tag/r5.3.2)
-(November 25, 2018).
+- General Availability (GA): [JUnit 5.10.1](https://github.com/junit-team/junit5/releases/tag/r5.10.1) (November 5, 2023)
 - Preview (Milestone/Release Candidate): N/A
 
 ## Documentation
@@ -13,6 +14,7 @@ This repository is the home of the next generation of JUnit, _JUnit 5_.
 - [User Guide]
 - [Javadoc]
 - [Release Notes]
+- [Samples]
 
 ## Contributing
 
@@ -26,131 +28,80 @@ label are specifically targeted for community contributions.
 
 ## Getting Help
 
-Ask JUnit 5 related questions on [StackOverflow] or chat with the team and the community on [Gitter].
+Ask JUnit 5 related questions on [StackOverflow] or chat with the community on [Gitter].
 
 ## Continuous Integration Builds
 
-| CI Server | OS      | Status | Description |
-| --------- | ------- | ------ | ----------- |
-| Jenkins   | Linux   | [![Build Status](https://junit.ci.cloudbees.com/job/JUnit5/job/master/badge/icon)](https://junit.ci.cloudbees.com/blue/organizations/jenkins/JUnit5/branches/) | Official CI build server for JUnit 5 |
-| Travis CI | Linux   | [![Travis CI build status](https://travis-ci.org/junit-team/junit5.svg?branch=master)](https://travis-ci.org/junit-team/junit5) | Used to perform quick checks on submitted pull requests and for build matrices including JDK 8 and JDK 9 early access builds |
-| AppVeyor  | Windows | [![Build status](https://ci.appveyor.com/api/projects/status/xv8wc8w9sr44ghc4/branch/master?svg=true)](https://ci.appveyor.com/project/marcphilipp/junit5/branch/master) | Used to ensure that JUnit 5 can be built on Windows |
+[![CI Status](https://github.com/junit-team/junit5/workflows/CI/badge.svg)](https://github.com/junit-team/junit5/actions) [![Cross-Version Status](https://github.com/junit-team/junit5/workflows/Cross-Version/badge.svg)](https://github.com/junit-team/junit5/actions)
+
+Official CI build server for JUnit 5. Used to perform quick checks on submitted pull
+requests and for build matrices including the latest released OpenJDK and early access
+builds of the next OpenJDK.
 
 ## Code Coverage
 
-Code coverage using [JaCoCo] for the latest build is available on the [Jenkins CI server]
-and on [Codecov].
+Code coverage using [JaCoCo] for the latest build is available on [Codecov].
 
 A code coverage report can also be generated locally via the [Gradle Wrapper] by
-executing `gradlew -PenableJaCoCo clean jacocoRootReport`. The results will be available
+executing `./gradlew -Ptesting.enableJaCoCo clean jacocoRootReport`. The results will be available
 in `build/reports/jacoco/jacocoRootReport/html/index.html`.
 
-## Gradle Build Scans
+## Develocity
 
-JUnit 5 utilizes [Gradle's](https://gradle.com/) support for _Build Scans_. An example
-build scan for JUnit 5 can be viewed [here](https://scans.gradle.com/s/pgjgssca2kkli).
-Note, however, that the number of listed tests only reflects the Spock tests within the
-JUnit 5 test suite. To see a full representation of the number of tests executed per
-project, click on "See console output" on the build scan page.
+[![Revved up by Develocity](https://img.shields.io/badge/Revved%20up%20by-Develocity-06A0CE?logo=Gradle&labelColor=02303A)](https://ge.junit.org/scans)
+
+JUnit 5 utilizes [Develocity](https://gradle.com/) for [Build Scans](https://scans.gradle.com/),
+[Build Cache](https://docs.gradle.org/current/userguide/build_cache.html),
+[Predictive Test Selection](https://docs.gradle.com/enterprise/predictive-test-selection/), and
+[Test Distribution](https://docs.gradle.com/enterprise/test-distribution/).
+
+The latest Build Scans are available on [ge.junit.org](https://ge.junit.org/). Currently,
+only core team members can publish Build Scans and use Test Distribution on that server.
+You can, however, publish a Build Scan to [scans.gradle.com](https://scans.gradle.com/) by
+using the `--scan` parameter explicitly.
+
+The remote Build Cache is enabled by default for everyone so that local builds can reuse
+task outputs from previous CI builds.
 
 ## Building from Source
 
-You need [JDK-10] to build JUnit 5.
+You need [JDK 17] to build JUnit 5. [Gradle toolchains] are used to detect and
+potentially download additional JDKs for compilation and test execution.
 
-All modules can be _built_ with the [Gradle Wrapper] using the following command.
+All modules can be _built_ and _tested_ with the [Gradle Wrapper] using the following command.
 
-`gradlew clean assemble`
-
-All modules can be _tested_ with the [Gradle Wrapper] using the following command.
-
-`gradlew clean test`
-
-Since Gradle has excellent incremental build support, you can usually omit executing the
-`clean` task.
+`./gradlew build`
 
 ## Installing in Local Maven Repository
 
 All modules can be _installed_ with the [Gradle Wrapper] in a local Maven repository for
 consumption in other projects via the following command.
 
-`gradlew clean publishToMavenLocal`
+`./gradlew publishToMavenLocal`
 
 ## Dependency Metadata
 
-The following sections list the dependency metadata for the JUnit Platform, JUnit
-Jupiter, and JUnit Vintage.
+[![JUnit Jupiter version](https://img.shields.io/maven-central/v/org.junit.jupiter/junit-jupiter/5..svg?color=25a162&label=Jupiter)](https://central.sonatype.com/search?namespace=org.junit.jupiter)
+[![JUnit Vintage version](https://img.shields.io/maven-central/v/org.junit.vintage/junit-vintage-engine/5..svg?color=25a162&label=Vintage)](https://central.sonatype.com/search?namespace=org.junit.vintage)
+[![JUnit Platform version](https://img.shields.io/maven-central/v/org.junit.platform/junit-platform-commons/1..svg?color=25a162&label=Platform)](https://central.sonatype.com/search?namespace=org.junit.platform)
 
-See also <http://repo1.maven.org/maven2/org/junit/> for releases and <https://oss.sonatype.org/content/repositories/snapshots/org/junit/> for snapshots.
+Consult the [Dependency Metadata] section of the [User Guide] for a list of all artifacts
+of the JUnit Platform, JUnit Jupiter, and JUnit Vintage.
 
-### JUnit Platform
-
-- **Group ID**: `org.junit.platform`
-- **Version**: `1.3.2` or `1.3.3-SNAPSHOT`
-- **Artifact IDs** and **Automatic-Module-Name**:
-  - `junit-platform-commons` (`org.junit.platform.commons`)
-  - `junit-platform-console` (`org.junit.platform.console`)
-  - `junit-platform-console-standalone` (*N/A*)
-  - `junit-platform-engine` (`org.junit.platform.engine`)
-  - `junit-platform-launcher` (`org.junit.platform.launcher`)
-  - `junit-platform-runner` (`org.junit.platform.runner`)
-  - `junit-platform-suite-api` (`org.junit.platform.suite.api`)
-  - `junit-platform-surefire-provider` (`org.junit.platform.surefire.provider`)
-
-### JUnit Jupiter
-
-- **Group ID**: `org.junit.jupiter`
-- **Version**: `5.3.2` or `5.3.3-SNAPSHOT`
-- **Artifact IDs** and **Automatic-Module-Name**:
-  - `junit-jupiter-api` (`org.junit.jupiter.api`)
-  - `junit-jupiter-engine` (`org.junit.jupiter.engine`)
-  - `junit-jupiter-migrationsupport` (`org.junit.jupiter.migrationsupport`)
-  - `junit-jupiter-params` (`org.junit.jupiter.params`)
-
-### JUnit Vintage
-
-- **Group ID**: `org.junit.vintage`
-- **Version**: `5.3.2` or `5.3.3-SNAPSHOT`
-- **Artifact ID** and **Automatic-Module-Name**:
-  - `junit-vintage-engine` (`org.junit.vintage.engine`)
-
-### Bill of Materials (BOM)
-
-- **Group ID**: `org.junit`
-- **Artifact ID** `junit-bom`
-- **Version**: `5.3.2` or `5.3.3-SNAPSHOT`
-
-## Java Module Names
-
-All published JAR artifacts contain an [Automatic-Module-Name] manifest attribute
-whose value is used as the name of the automatic module defined by that JAR file
-when it is placed on the module path. The names are listed above in the
-Dependency Metadata section.
-
-This allows test module authors to require well-known JUnit module names as
-can be seen in the following example:
-
-```
-open module foo.bar {
-  requires org.junit.jupiter.api;
-  requires org.junit.platform.commons;
-  requires org.opentest4j;
-}
-```
-
-The `junit-platform-console-standalone` JAR does not provide an automatic module name
-as it is not intended to be used as a module.
+See also <https://repo1.maven.org/maven2/org/junit/> for releases and
+<https://oss.sonatype.org/content/repositories/snapshots/org/junit/> for snapshots.
 
 
-[Automatic-Module-Name]: http://mail.openjdk.java.net/pipermail/jpms-spec-experts/2017-April/000667.html
 [Codecov]: https://codecov.io/gh/junit-team/junit5
-[CONTRIBUTING.md]: https://github.com/junit-team/junit5/blob/master/CONTRIBUTING.md
+[CONTRIBUTING.md]: https://github.com/junit-team/junit5/blob/HEAD/CONTRIBUTING.md
+[Dependency Metadata]: https://junit.org/junit5/docs/current/user-guide/#dependency-metadata
 [Gitter]: https://gitter.im/junit-team/junit5
+[Gradle toolchains]: https://docs.gradle.org/current/userguide/toolchains.html
 [Gradle Wrapper]: https://docs.gradle.org/current/userguide/gradle_wrapper.html#sec:using_wrapper
-[JaCoCo]: http://www.eclemma.org/jacoco/
+[JaCoCo]: https://www.eclemma.org/jacoco/
 [Javadoc]: https://junit.org/junit5/docs/current/api/
-[JDK-10]: http://jdk.java.net/10/
-[Jenkins CI server]: https://junit.ci.cloudbees.com/job/JUnit5/job/master/lastSuccessfulBuild/artifact/build/reports/jacoco/jacocoRootReport/html/index.html
-[Prototype]: https://github.com/junit-team/junit5/wiki/Prototype
+[JDK 17]: https://foojay.io/almanac/java-17/
 [Release Notes]: https://junit.org/junit5/docs/current/release-notes/
+[Samples]: https://github.com/junit-team/junit5-samples
 [StackOverflow]: https://stackoverflow.com/questions/tagged/junit5
 [User Guide]: https://junit.org/junit5/docs/current/user-guide/

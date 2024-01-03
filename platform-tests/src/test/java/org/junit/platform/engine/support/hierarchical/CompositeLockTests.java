@@ -1,31 +1,27 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.engine.support.hierarchical;
 
-import static java.util.Arrays.asList;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import org.junit.jupiter.api.Test;
-import org.mockito.InOrder;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * @since 1.3
@@ -35,45 +31,40 @@ class CompositeLockTests {
 	@Test
 	@SuppressWarnings("resource")
 	void acquiresAllLocksInOrder() throws Exception {
-		ReentrantLock lock1 = spy(new ReentrantLock());
-		ReentrantLock lock2 = spy(new ReentrantLock());
+		var lock1 = mock(Lock.class);
+		var lock2 = mock(Lock.class);
 
-		new CompositeLock(asList(lock1, lock2)).acquire();
+		new CompositeLock(List.of(lock1, lock2)).acquire();
 
-		InOrder inOrder = inOrder(lock1, lock2);
+		var inOrder = inOrder(lock1, lock2);
 		inOrder.verify(lock1).lockInterruptibly();
 		inOrder.verify(lock2).lockInterruptibly();
-		assertTrue(lock1.isLocked());
-		assertTrue(lock2.isLocked());
 	}
 
 	@Test
 	@SuppressWarnings("resource")
 	void releasesAllLocksInReverseOrder() throws Exception {
-		ReentrantLock lock1 = spy(new ReentrantLock());
-		ReentrantLock lock2 = spy(new ReentrantLock());
+		var lock1 = mock(Lock.class);
+		var lock2 = mock(Lock.class);
 
-		new CompositeLock(asList(lock1, lock2)).acquire().close();
+		new CompositeLock(List.of(lock1, lock2)).acquire().close();
 
-		InOrder inOrder = inOrder(lock1, lock2);
+		var inOrder = inOrder(lock1, lock2);
 		inOrder.verify(lock2).unlock();
 		inOrder.verify(lock1).unlock();
-		assertFalse(lock1.isLocked());
-		assertFalse(lock2.isLocked());
 	}
 
 	@Test
 	@SuppressWarnings("resource")
 	void releasesLocksInReverseOrderWhenInterruptedDuringAcquire() throws Exception {
-		CountDownLatch firstTwoLocksWereLocked = new CountDownLatch(2);
-		Lock firstLock = mockLock("firstLock", firstTwoLocksWereLocked);
-		Lock secondLock = mockLock("secondLock", firstTwoLocksWereLocked);
-		Lock unavailableLock = spy(new ReentrantLock());
-		unavailableLock.lock();
+		var firstTwoLocksWereLocked = new CountDownLatch(2);
+		var firstLock = mockLock("firstLock", firstTwoLocksWereLocked::countDown);
+		var secondLock = mockLock("secondLock", firstTwoLocksWereLocked::countDown);
+		var unavailableLock = mockLock("unavailableLock", new CountDownLatch(1)::await);
 
-		Thread thread = new Thread(() -> {
+		var thread = new Thread(() -> {
 			try {
-				new CompositeLock(asList(firstLock, secondLock, unavailableLock)).acquire();
+				new CompositeLock(List.of(firstLock, secondLock, unavailableLock)).acquire();
 			}
 			catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
@@ -84,16 +75,16 @@ class CompositeLockTests {
 		thread.interrupt();
 		thread.join();
 
-		InOrder inOrder = inOrder(firstLock, secondLock);
+		var inOrder = inOrder(firstLock, secondLock);
 		inOrder.verify(secondLock).unlock();
 		inOrder.verify(firstLock).unlock();
 		verify(unavailableLock, never()).unlock();
 	}
 
-	private Lock mockLock(String name, CountDownLatch countDownWhenLocked) throws InterruptedException {
-		Lock lock = mock(Lock.class, name);
+	private Lock mockLock(String name, Executable lockAction) throws InterruptedException {
+		var lock = mock(Lock.class, name);
 		doAnswer(invocation -> {
-			countDownWhenLocked.countDown();
+			lockAction.execute();
 			return null;
 		}).when(lock).lockInterruptibly();
 		return lock;

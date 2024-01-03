@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.api;
@@ -15,7 +15,7 @@ import static java.util.stream.Collectors.joining;
 import java.util.Deque;
 import java.util.function.Supplier;
 
-import org.junit.platform.commons.util.StringUtils;
+import org.junit.platform.commons.util.UnrecoverableExceptions;
 import org.opentest4j.AssertionFailedError;
 
 /**
@@ -50,36 +50,8 @@ class AssertionUtils {
 		throw new AssertionFailedError(nullSafeGet(messageSupplier));
 	}
 
-	static void fail(String message, Object expected, Object actual) {
-		throw new AssertionFailedError(message, expected, actual);
-	}
-
 	static String nullSafeGet(Supplier<String> messageSupplier) {
 		return (messageSupplier != null ? messageSupplier.get() : null);
-	}
-
-	/**
-	 * Alternative to {@link #nullSafeGet(Supplier)} that is used to avoid
-	 * wrapping a String in a lambda expression.
-	 *
-	 * @param messageOrSupplier an object that is either a {@code String} or
-	 * {@code Supplier<String>}
-	 */
-	static String nullSafeGet(Object messageOrSupplier) {
-		if (messageOrSupplier instanceof String) {
-			return (String) messageOrSupplier;
-		}
-		if (messageOrSupplier instanceof Supplier) {
-			Object message = ((Supplier<?>) messageOrSupplier).get();
-			if (message != null) {
-				return message.toString();
-			}
-		}
-		return null;
-	}
-
-	static String buildPrefix(String message) {
-		return (StringUtils.isNotBlank(message) ? message + " ==> " : "");
 	}
 
 	static String getCanonicalName(Class<?> clazz) {
@@ -88,44 +60,9 @@ class AssertionUtils {
 			return (canonicalName != null ? canonicalName : clazz.getName());
 		}
 		catch (Throwable t) {
+			UnrecoverableExceptions.rethrowIfUnrecoverable(t);
 			return clazz.getName();
 		}
-	}
-
-	static String format(Object expected, Object actual, String message) {
-		return buildPrefix(message) + formatValues(expected, actual);
-	}
-
-	static String formatValues(Object expected, Object actual) {
-		String expectedString = toString(expected);
-		String actualString = toString(actual);
-		if (expectedString.equals(actualString)) {
-			return String.format("expected: %s but was: %s", formatClassAndValue(expected, expectedString),
-				formatClassAndValue(actual, actualString));
-		}
-		return String.format("expected: <%s> but was: <%s>", expectedString, actualString);
-	}
-
-	private static String formatClassAndValue(Object value, String valueString) {
-		String classAndHash = getClassName(value) + toHash(value);
-		// if it's a class, there's no need to repeat the class name contained in the valueString.
-		return (value instanceof Class ? "<" + classAndHash + ">" : classAndHash + "<" + valueString + ">");
-	}
-
-	private static String toString(Object obj) {
-		if (obj instanceof Class) {
-			return getCanonicalName((Class<?>) obj);
-		}
-		return StringUtils.nullSafeToString(obj);
-	}
-
-	private static String toHash(Object obj) {
-		return (obj == null ? "" : "@" + Integer.toHexString(System.identityHashCode(obj)));
-	}
-
-	private static String getClassName(Object obj) {
-		return (obj == null ? "null"
-				: obj instanceof Class ? getCanonicalName((Class<?>) obj) : obj.getClass().getName());
 	}
 
 	static String formatIndexes(Deque<Integer> indexes) {
@@ -142,13 +79,13 @@ class AssertionUtils {
 	}
 
 	static void assertValidDelta(float delta) {
-		if (Float.isNaN(delta) || delta <= 0.0) {
+		if (Float.isNaN(delta) || delta < 0.0) {
 			failIllegalDelta(String.valueOf(delta));
 		}
 	}
 
 	static void assertValidDelta(double delta) {
-		if (Double.isNaN(delta) || delta <= 0.0) {
+		if (Double.isNaN(delta) || delta < 0.0) {
 			failIllegalDelta(String.valueOf(delta));
 		}
 	}

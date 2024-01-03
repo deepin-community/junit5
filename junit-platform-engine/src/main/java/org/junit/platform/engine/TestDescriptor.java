@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.engine;
@@ -18,13 +18,14 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.apiguardian.api.API;
+import org.junit.platform.commons.util.Preconditions;
 
 /**
  * Mutable descriptor for a test or container that has been discovered by a
  * {@link TestEngine}.
  *
- * @see TestEngine
  * @since 1.0
+ * @see TestEngine
  */
 @API(status = STABLE, since = "1.0")
 public interface TestDescriptor {
@@ -59,7 +60,7 @@ public interface TestDescriptor {
 	 * reporting infrastructure &mdash; for example, for reporting systems built
 	 * on the Ant-based XML reporting format for JUnit 4.
 	 *
-	 * <p>The default implementation simply delegates to {@link #getDisplayName()}.
+	 * <p>The default implementation delegates to {@link #getDisplayName()}.
 	 *
 	 * @return the legacy reporting name; never {@code null} or blank
 	 */
@@ -104,6 +105,29 @@ public interface TestDescriptor {
 	 * @see #getDescendants()
 	 */
 	Set<? extends TestDescriptor> getChildren();
+
+	/**
+	 * Get the immutable set of all <em>ancestors</em> of this descriptor.
+	 *
+	 * <p>An <em>ancestor</em> is the parent of this descriptor or the parent of
+	 * one of its parents, recursively.
+	 *
+	 * @see #getParent()
+	 */
+	@API(status = STABLE, since = "1.10")
+	default Set<? extends TestDescriptor> getAncestors() {
+		if (!getParent().isPresent()) {
+			return Collections.emptySet();
+		}
+		TestDescriptor parent = getParent().get();
+		Set<TestDescriptor> ancestors = new LinkedHashSet<>();
+		ancestors.add(parent);
+		// Need to recurse?
+		if (parent.getParent().isPresent()) {
+			ancestors.addAll(parent.getAncestors());
+		}
+		return Collections.unmodifiableSet(ancestors);
+	}
 
 	/**
 	 * Get the immutable set of all <em>descendants</em> of this descriptor.
@@ -195,10 +219,18 @@ public interface TestDescriptor {
 	}
 
 	/**
-	 * Determine if the supplied descriptor or any of its descendants contains
-	 * any tests.
+	 * Determine if the supplied descriptor (or any of its descendants)
+	 * {@linkplain TestDescriptor#isTest() is a test} or
+	 * {@linkplain TestDescriptor#mayRegisterTests() may potentially register
+	 * tests dynamically}.
+	 *
+	 * @param testDescriptor the {@code TestDescriptor} to check for tests; never
+	 * {@code null}
+	 * @return {@code true} if the descriptor is a test, contains tests, or may
+	 * later register tests dynamically
 	 */
 	static boolean containsTests(TestDescriptor testDescriptor) {
+		Preconditions.notNull(testDescriptor, "TestDescriptor must not be null");
 		return testDescriptor.isTest() || testDescriptor.mayRegisterTests()
 				|| testDescriptor.getChildren().stream().anyMatch(TestDescriptor::containsTests);
 	}
@@ -231,11 +263,12 @@ public interface TestDescriptor {
 	Optional<? extends TestDescriptor> findByUniqueId(UniqueId uniqueId);
 
 	/**
-	 * Accept a visitor to the subtree starting with this descriptor.
+	 * Accept a {@link Visitor} to the subtree starting with this descriptor.
 	 *
 	 * @param visitor the {@code Visitor} to accept; never {@code null}
 	 */
 	default void accept(Visitor visitor) {
+		Preconditions.notNull(visitor, "Visitor must not be null");
 		visitor.visit(this);
 		// Create a copy of the set in order to avoid a ConcurrentModificationException
 		new LinkedHashSet<>(this.getChildren()).forEach(child -> child.accept(visitor));
@@ -244,7 +277,7 @@ public interface TestDescriptor {
 	/**
 	 * Visitor for the tree-like {@link TestDescriptor} structure.
 	 *
-	 * @see TestDescriptor#accept
+	 * @see TestDescriptor#accept(Visitor)
 	 */
 	@FunctionalInterface
 	interface Visitor {
@@ -255,6 +288,7 @@ public interface TestDescriptor {
 		 * @param descriptor the {@code TestDescriptor} to visit; never {@code null}
 		 */
 		void visit(TestDescriptor descriptor);
+
 	}
 
 	/**

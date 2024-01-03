@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.launcher;
@@ -25,6 +25,11 @@ import org.junit.platform.engine.reporting.ReportEntry;
  * Concrete implementations may therefore override one or more of these methods
  * to be notified of the selected events.
  *
+ * <p>All {@code TestExecutionListener} methods are called sequentially. Methods
+ * for start events are called in registration order while methods for finish
+ * events are called in reverse order. Test case execution won't start before
+ * all {@link #executionStarted(TestIdentifier)} calls have returned.
+ *
  * <p>JUnit provides two example implementations.
  *
  * <ul>
@@ -39,6 +44,19 @@ import org.junit.platform.engine.reporting.ReportEntry;
  * Jupiter engines comply with this contract, there is no way to guarantee this for
  * third-party engines.
  *
+ * <p>As of JUnit Platform 1.8, a {@code TestExecutionListener} can access
+ * {@linkplain org.junit.platform.engine.ConfigurationParameters configuration
+ * parameters} via the {@link TestPlan#getConfigurationParameters()
+ * getConfigurationParameters()} method in the {@code TestPlan} supplied to
+ * {@link #testPlanExecutionStarted(TestPlan)} and
+ * {@link #testPlanExecutionFinished(TestPlan)}.
+ *
+ * <p>Note on concurrency: {@link #testPlanExecutionStarted(TestPlan)} and
+ * {@link #testPlanExecutionFinished(TestPlan)} are always called from the same
+ * thread. It is safe to assume that there is at most one {@code TestPlan}
+ * instance at a time. All other methods could be called from different threads
+ * concurrently in case one or multiple test engines execute tests in parallel.
+ *
  * @since 1.0
  * @see Launcher
  * @see TestPlan
@@ -51,6 +69,8 @@ public interface TestExecutionListener {
 	 * Called when the execution of the {@link TestPlan} has started,
 	 * <em>before</em> any test has been executed.
 	 *
+	 * <p>Called from the same thread as {@link #testPlanExecutionFinished(TestPlan)}.
+	 *
 	 * @param testPlan describes the tree of tests about to be executed
 	 */
 	default void testPlanExecutionStarted(TestPlan testPlan) {
@@ -59,6 +79,8 @@ public interface TestExecutionListener {
 	/**
 	 * Called when the execution of the {@link TestPlan} has finished,
 	 * <em>after</em> all tests have been executed.
+	 *
+	 * <p>Called from the same thread as {@link #testPlanExecutionStarted(TestPlan)}.
 	 *
 	 * @param testPlan describes the tree of tests that have been executed
 	 */

@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.engine;
@@ -15,6 +15,7 @@ import static java.util.Collections.unmodifiableList;
 import static org.apiguardian.api.API.Status.STABLE;
 
 import java.io.Serializable;
+import java.lang.ref.SoftReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -81,11 +82,18 @@ public class UniqueId implements Cloneable, Serializable {
 	}
 
 	private final UniqueIdFormat uniqueIdFormat;
+
+	@SuppressWarnings({ "serial", "RedundantSuppression" }) // always used with serializable implementation (singletonList() or ArrayList)
 	private final List<Segment> segments;
 
+	// lazily computed
+	private transient int hashCode;
+
+	// lazily computed
+	private transient SoftReference<String> toString;
+
 	private UniqueId(UniqueIdFormat uniqueIdFormat, Segment segment) {
-		this.uniqueIdFormat = uniqueIdFormat;
-		this.segments = singletonList(segment);
+		this(uniqueIdFormat, singletonList(segment));
 	}
 
 	/**
@@ -97,7 +105,7 @@ public class UniqueId implements Cloneable, Serializable {
 	 */
 	UniqueId(UniqueIdFormat uniqueIdFormat, List<Segment> segments) {
 		this.uniqueIdFormat = uniqueIdFormat;
-		this.segments = unmodifiableList(segments);
+		this.segments = segments;
 	}
 
 	final Optional<Segment> getRoot() {
@@ -118,7 +126,7 @@ public class UniqueId implements Cloneable, Serializable {
 	 * {@code UniqueId}.
 	 */
 	public final List<Segment> getSegments() {
-		return this.segments;
+		return unmodifiableList(this.segments);
 	}
 
 	/**
@@ -152,9 +160,28 @@ public class UniqueId implements Cloneable, Serializable {
 	@API(status = STABLE, since = "1.1")
 	public final UniqueId append(Segment segment) {
 		Preconditions.notNull(segment, "segment must not be null");
-		List<Segment> baseSegments = new ArrayList<>(this.segments);
+		List<Segment> baseSegments = new ArrayList<>(this.segments.size() + 1);
+		baseSegments.addAll(this.segments);
 		baseSegments.add(segment);
 		return new UniqueId(this.uniqueIdFormat, baseSegments);
+	}
+
+	/**
+	 * Construct a new {@code UniqueId} by appending a new {@link Segment}, based
+	 * on the supplied {@code engineId}, to the end of this {@code UniqueId}.
+	 *
+	 * <p>This {@code UniqueId} will not be modified.
+	 *
+	 * <p>The engine ID will be stored in a {@link Segment} with
+	 * {@link Segment#getType type} {@value #ENGINE_SEGMENT_TYPE}.
+	 *
+	 * @param engineId the engine ID; never {@code null} or blank
+	 *
+	 * @since 1.8
+	 */
+	@API(status = STABLE, since = "1.10")
+	public UniqueId appendEngine(String engineId) {
+		return append(new Segment(ENGINE_SEGMENT_TYPE, engineId));
 	}
 
 	/**
@@ -171,6 +198,34 @@ public class UniqueId implements Cloneable, Serializable {
 		int size = this.segments.size();
 		int prefixSize = potentialPrefix.segments.size();
 		return size >= prefixSize && this.segments.subList(0, prefixSize).equals(potentialPrefix.segments);
+	}
+
+	/**
+	 * Construct a new {@code UniqueId} and removing the last {@link Segment} of
+	 * this {@code UniqueId}.
+	 *
+	 * <p>This {@code UniqueId} will not be modified.
+	 *
+	 * @return a new {@code UniqueId}; never {@code null}
+	 * @throws org.junit.platform.commons.PreconditionViolationException
+	 * if this {@code UniqueId} contains a single segment
+	 * @since 1.5
+	 */
+	@API(status = STABLE, since = "1.5")
+	public UniqueId removeLastSegment() {
+		Preconditions.condition(this.segments.size() > 1, "Cannot remove last remaining segment");
+		return new UniqueId(uniqueIdFormat, new ArrayList<>(this.segments.subList(0, this.segments.size() - 1)));
+	}
+
+	/**
+	 * Get the last {@link Segment} of this {@code UniqueId}.
+	 *
+	 * @return the last {@code Segment}; never {@code null}
+	 * @since 1.5
+	 */
+	@API(status = STABLE, since = "1.5")
+	public Segment getLastSegment() {
+		return this.segments.get(this.segments.size() - 1);
 	}
 
 	@Override
@@ -193,7 +248,23 @@ public class UniqueId implements Cloneable, Serializable {
 
 	@Override
 	public int hashCode() {
-		return this.segments.hashCode();
+		int value = this.hashCode;
+		if (value == 0) {
+			value = this.segments.hashCode();
+			if (value == 0) {
+				// handle the edge case of the computed hashCode being 0
+				value = 1;
+			}
+			// this is a benign race like String#hash
+			// we potentially read and write values from multiple threads
+			// without a happens-before relationship
+			// however the JMM guarantees us that we only ever see values
+			// that were valid at one point, either 0 or the hash code
+			// so we might end up not seeing a value that a different thread
+			// has computed or multiple threads writing the same value
+			this.hashCode = value;
+		}
+		return value;
 	}
 
 	/**
@@ -202,7 +273,20 @@ public class UniqueId implements Cloneable, Serializable {
 	 */
 	@Override
 	public String toString() {
-		return this.uniqueIdFormat.format(this);
+		SoftReference<String> s = this.toString;
+		String value = s == null ? null : s.get();
+		if (value == null) {
+			value = this.uniqueIdFormat.format(this);
+			// this is a benign race like String#hash
+			// we potentially read and write values from multiple threads
+			// without a happens-before relationship
+			// however the JMM guarantees us that we only ever see values
+			// that were valid at one point, either null or the toString value
+			// so we might end up not seeing a value that a different thread
+			// has computed or multiple threads writing the same value
+			this.toString = new SoftReference<>(value);
+		}
+		return value;
 	}
 
 	/**

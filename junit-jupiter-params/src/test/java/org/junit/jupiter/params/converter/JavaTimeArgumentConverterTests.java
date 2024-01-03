@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.params.converter;
@@ -105,19 +105,17 @@ class JavaTimeArgumentConverterTests {
 
 	@Test
 	void throwsExceptionOnInvalidTargetType() {
-		ArgumentConversionException exception = assertThrows(ArgumentConversionException.class,
-			() -> convert("2017", "yyyy", Integer.class));
+		var exception = assertThrows(ArgumentConversionException.class, () -> convert("2017", "yyyy", Integer.class));
 
 		assertThat(exception).hasMessage("Cannot convert to java.lang.Integer: 2017");
 	}
 
 	private Object convert(Object input, String pattern, Class<?> targetClass) {
-		JavaTimeArgumentConverter converter = new JavaTimeArgumentConverter();
-		JavaTimeConversionPattern annotation = mock(JavaTimeConversionPattern.class);
+		var converter = new JavaTimeArgumentConverter();
+		var annotation = mock(JavaTimeConversionPattern.class);
 		when(annotation.value()).thenReturn(pattern);
-		converter.accept(annotation);
 
-		return converter.convert(input, targetClass);
+		return converter.convert(input, targetClass, annotation);
 	}
 
 }

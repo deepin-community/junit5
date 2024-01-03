@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.api.extension;
@@ -30,21 +30,22 @@ import org.apiguardian.api.API;
  * to pass arguments to the extension's constructor, {@code static} factory
  * method, or builder API.
  *
- * <p>{@code @RegisterExtension} fields must not be {@code private} or
- * {@code null} (when evaluated) but may be either {@code static} or non-static.
+ * <p>{@code @RegisterExtension} fields must not be {@code null} (when evaluated)
+ * but may be either {@code static} or non-static.
  *
- * <h3>Static Fields</h3>
+ * <h2>Static Fields</h2>
  *
  * <p>If a {@code @RegisterExtension} field is {@code static}, the extension
  * will be registered after extensions that are registered at the class level
  * via {@code @ExtendWith}. Such <em>static</em> extensions are not limited in
  * which extension APIs they can implement. Extensions registered via static
  * fields may therefore implement class-level and instance-level extension APIs
- * such as {@link BeforeAllCallback}, {@link AfterAllCallback}, and
- * {@link TestInstancePostProcessor} as well as method-level extension APIs
+ * such as {@link BeforeAllCallback}, {@link AfterAllCallback},
+ * {@link TestInstanceFactory}, {@link TestInstancePostProcessor} and
+ * {@link TestInstancePreDestroyCallback} as well as method-level extension APIs
  * such as {@link BeforeEachCallback}, etc.
  *
- * <h3>Instance Fields</h3>
+ * <h2>Instance Fields</h2>
  *
  * <p>If a {@code @RegisterExtension} field is non-static (i.e., an instance
  * field), the extension will be registered after the test class has been
@@ -53,16 +54,38 @@ import org.apiguardian.api.API;
  * test instance (potentially injecting the instance of the extension to be
  * used into the annotated field). Thus, if such an <em>instance</em> extension
  * implements class-level or instance-level extension APIs such as
- * {@link BeforeAllCallback}, {@link AfterAllCallback}, or
- * {@link TestInstancePostProcessor} those APIs will not be honored. By default,
- * an instance extension will be registered <em>after</em> extensions that are
- * registered at the method level via {@code @ExtendWith}; however, if the test
- * class is configured with
+ * {@link BeforeAllCallback}, {@link AfterAllCallback},
+ * {@link TestInstanceFactory}, or {@link TestInstancePostProcessor} those APIs
+ * will not be honored. By default, an instance extension will be registered
+ * <em>after</em> extensions that are registered at the method level via
+ * {@code @ExtendWith}; however, if the test class is configured with
  * {@link org.junit.jupiter.api.TestInstance.Lifecycle @TestInstance(Lifecycle.PER_CLASS)}
  * semantics, an instance extension will be registered <em>before</em> extensions
  * that are registered at the method level via {@code @ExtendWith}.
  *
- * <h3>Example Usage</h3>
+ * <h2>Inheritance</h2>
+ *
+ * <p>{@code @RegisterExtension} fields are inherited from superclasses as long
+ * as they are not <em>hidden</em> or <em>overridden</em>. Furthermore,
+ * {@code @RegisterExtension} fields from superclasses will be registered before
+ * {@code @RegisterExtension} fields in subclasses.
+ *
+ * <h2>Registration Order</h2>
+ *
+ * <p>By default, if multiple extensions are registered via
+ * {@code @RegisterExtension}, they will be ordered using an algorithm that is
+ * deterministic but intentionally nonobvious. This ensures that subsequent runs
+ * of a test suite execute extensions in the same order, thereby allowing for
+ * repeatable builds. However, there are times when extensions need to be
+ * registered in an explicit order. To achieve that, you can annotate
+ * {@code @RegisterExtension} fields with {@link org.junit.jupiter.api.Order @Order}.
+ * Any {@code @RegisterExtension} field not annotated with {@code @Order} will be
+ * ordered using the {@link org.junit.jupiter.api.Order#DEFAULT default} order
+ * value. Note that {@code @ExtendWith} fields can also be ordered with
+ * {@code @Order}, relative to {@code @RegisterExtension} fields and other
+ * {@code @ExtendWith} fields.
+ *
+ * <h2>Example Usage</h2>
  *
  * <p>In the following example, the {@code docs} field in the test class is
  * initialized programmatically by supplying a custom {@code lookUpDocsDir()}
@@ -88,24 +111,32 @@ import org.apiguardian.api.API;
  *     }
  * }</pre>
  *
- * <h3>Supported Extension APIs</h3>
+ * <h2>Supported Extension APIs</h2>
+ *
  * <ul>
  * <li>{@link ExecutionCondition}</li>
+ * <li>{@link InvocationInterceptor}</li>
  * <li>{@link BeforeAllCallback}</li>
  * <li>{@link AfterAllCallback}</li>
  * <li>{@link BeforeEachCallback}</li>
  * <li>{@link AfterEachCallback}</li>
  * <li>{@link BeforeTestExecutionCallback}</li>
  * <li>{@link AfterTestExecutionCallback}</li>
+ * <li>{@link TestInstanceFactory}</li>
  * <li>{@link TestInstancePostProcessor}</li>
+ * <li>{@link TestInstancePreConstructCallback}</li>
+ * <li>{@link TestInstancePreDestroyCallback}</li>
  * <li>{@link ParameterResolver}</li>
+ * <li>{@link LifecycleMethodExecutionExceptionHandler}</li>
  * <li>{@link TestExecutionExceptionHandler}</li>
  * <li>{@link TestTemplateInvocationContextProvider}</li>
+ * <li>{@link TestWatcher}</li>
  * </ul>
  *
  * @since 5.1
- * @see ExtendWith
+ * @see ExtendWith @ExtendWith
  * @see Extension
+ * @see org.junit.jupiter.api.Order @Order
  */
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)

@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.commons.util;
@@ -22,7 +22,7 @@ import org.apiguardian.api.API;
  * Simple builder for generating strings in custom implementations of
  * {@link Object#toString toString()}.
  *
- * <h3>DISCLAIMER</h3>
+ * <h2>DISCLAIMER</h2>
  *
  * <p>These utilities are intended solely for usage within the JUnit framework
  * itself. <strong>Any usage by external parties is not supported.</strong>
@@ -33,16 +33,21 @@ import org.apiguardian.api.API;
 @API(status = INTERNAL, since = "1.0")
 public class ToStringBuilder {
 
-	private final Class<?> type;
+	private final String typeName;
 
 	private final List<String> values = new ArrayList<>();
 
 	public ToStringBuilder(Object obj) {
-		this.type = Preconditions.notNull(obj, "Object must not be null").getClass();
+		this(Preconditions.notNull(obj, "Object must not be null").getClass().getSimpleName());
 	}
 
 	public ToStringBuilder(Class<?> type) {
-		this.type = Preconditions.notNull(type, "Class must not be null");
+		this(Preconditions.notNull(type, "Class must not be null").getSimpleName());
+	}
+
+	@API(status = INTERNAL, since = "1.7")
+	public ToStringBuilder(String typeName) {
+		this.typeName = Preconditions.notNull(typeName, "Type name must not be null");
 	}
 
 	public ToStringBuilder append(String name, Object value) {
@@ -57,7 +62,7 @@ public class ToStringBuilder {
 
 	@Override
 	public String toString() {
-		return this.type.getSimpleName() + " [" + join(", ", this.values) + "]";
+		return this.typeName + " [" + join(", ", this.values) + "]";
 	}
 
 }

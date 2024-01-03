@@ -10,13 +10,12 @@
 
 ### Project Licenses
 
-- `junit-platform-surefire-provider` uses [Apache License v2.0](junit-platform-surefire-provider/LICENSE.md)
-- All other modules use [Eclipse Public License v2.0](junit-jupiter-api/LICENSE.md).
+- All modules use [Eclipse Public License v2.0](LICENSE.md).
 
 ## Commit Messages
 
 As a general rule, the style and formatting of commit messages should follow the guidelines in
-[How to Write a Git Commit Message](http://chris.beams.io/posts/git-commit/).
+[How to Write a Git Commit Message](https://chris.beams.io/posts/git-commit/).
 
 In addition, any commit that is related to an existing issue must reference the issue.
 For example, if a commit in a pull request addresses issue \#999, it must contain the
@@ -29,10 +28,10 @@ Issue: #999
 ## Pull Requests
 
 Our [Definition of Done](https://github.com/junit-team/junit5/wiki/Definition-of-Done)
-offers some guidelines on what we expect from a pull request.
+(DoD) offers some guidelines on what we expect from a pull request.
 Feel free to open a pull request that does not fulfill all criteria, e.g. to discuss
 a certain change before polishing it, but please be aware that we will only merge it
-in case the DoD is met.
+once the DoD is met.
 
 Please add the following lines to your pull request description:
 
@@ -72,8 +71,8 @@ Code formatting is enforced using the [Spotless](https://github.com/diffplug/spo
 Gradle plugin. You can use `gradle spotlessApply` to format new code and add missing
 license headers to source files. Formatter and import order settings for Eclipse are
 available in the repository under
-[src/eclipse/junit-eclipse-formatter-settings.xml](src/eclipse/junit-eclipse-formatter-settings.xml)
-and [src/eclipse/junit-eclipse.importorder](src/eclipse/junit-eclipse.importorder),
+[junit-eclipse-formatter-settings.xml](gradle/config/eclipse/junit-eclipse-formatter-settings.xml)
+and [junit-eclipse.importorder](gradle/config/eclipse/junit-eclipse.importorder),
 respectively. For IntelliJ IDEA there's a
 [plugin](https://plugins.jetbrains.com/plugin/6546) you can use in conjunction with the
 Eclipse settings.
@@ -88,16 +87,29 @@ possible.
 
 In multi-line bullet point entries, subsequent lines should be indented.
 
+### Spelling
+
+Use American English spelling rules when writing documentation as well as for
+code -- class names, method names, variable names, etc.
+
 ### Javadoc
 
 - Javadoc comments should be wrapped after 80 characters whenever possible.
-- This first paragraph must be a single, concise sentence that ends with a period (".").
-- Place `<p>` on the same line as the first line in a new paragraph and precede `<p>` with a blank line.
+- This first paragraph must be a single, concise sentence that ends with a period (`.`).
+- Place `<p>` on the same line as the first line of a new paragraph and precede `<p>` with a blank line.
 - Insert a blank line before at-clauses/tags.
 - Favor `{@code foo}` over `<code>foo</code>`.
 - Favor literals (e.g., `{@literal @}`) over HTML entities.
-- Use `@since 5.0` instead of `@since 5.0.0`.
-- Do not use `@author` tags. Instead, contributors are listed on [GitHub](https://github.com/junit-team/junit5/graphs/contributors).
+- New classes and methods should declare a `@since ...` tag.
+- Use `@since 5.10` instead of `@since 5.10.0`.
+- Do not use `@author` tags. Instead, contributors are listed on the [GitHub](https://github.com/junit-team/junit5/graphs/contributors) page.
+- Do not use verbs in third-person form in the first sentence of the Javadoc for a method -- for example, use "Discover tests..." instead of "Discovers tests...".
+
+#### Examples
+
+See [`ExtensionContext`](junit-jupiter-api/src/main/java/org/junit/jupiter/api/extension/ExtensionContext.java) and
+[`ParameterContext`](junit-jupiter-api/src/main/java/org/junit/jupiter/api/extension/ParameterContext.java) for example Javadoc.
+
 
 ### Tests
 
@@ -108,22 +120,40 @@ In multi-line bullet point entries, subsequent lines should be indented.
 
 #### Assertions
 
-- Use `org.junit.jupiter.api.Assertions` wherever possible.
+- Use `org.junit.jupiter.api.Assertions` for simple assertions.
 - Use AssertJ when richer assertions are needed.
 - Do not use `org.junit.Assert` or `junit.framework.Assert`.
 
-#### Mocking
+#### Mocking and Stubbing
 
 - Use either [Mockito](https://github.com/mockito/mockito) or hand-written test doubles.
 
 ### Logging
 
 - In general, logging should be used sparingly.
-- All logging must be performed via the internal `Logger` façade provided via the JUnit [LoggerFactory](http://junit.org/junit5/docs/current/api/org/junit/platform/commons/logging/LoggerFactory.html).
-- Levels defined in JUnit's [Logger](http://junit.org/junit5/docs/current/api/org/junit/platform/commons/logging/Logger.html) façade.
+- All logging must be performed via the internal `Logger` façade provided via the JUnit [LoggerFactory](https://github.com/junit-team/junit5/blob/main/junit-platform-commons/src/main/java/org/junit/platform/commons/logging/LoggerFactory.java).
+- Levels defined in JUnit's [Logger](https://github.com/junit-team/junit5/blob/main/junit-platform-commons/src/main/java/org/junit/platform/commons/logging/Logger.java) façade, which delegates to Java Util Logging (JUL) for the actual logging.
   - _error_ (JUL: `SEVERE`, Log4J: `ERROR`): extra information (in addition to an Exception) about errors that will halt execution
   - _warn_ (JUL: `WARNING`, Log4J: `WARN`): potential usage or configuration errors that should not halt execution
   - _info_ (JUL: `INFO`, Log4J: `INFO`): information the users might want to know but not by default
   - _config_ (JUL: `CONFIG`, Log4J: `CONFIG`): information related to configuration of the system (Example: `ServiceLoaderTestEngineRegistry` logs IDs of discovered engines)
   - _debug_ (JUL: `FINE`, Log4J: `DEBUG`)
   - _trace_ (JUL: `FINER`, Log4J: `TRACE`)
+
+### Deprecation
+
+The JUnit 5 project uses the `@API` annotation from [API Guardian](https://github.com/apiguardian-team/apiguardian).
+Publicly available interfaces, classes, and methods have a defined lifecycle
+which is described in detail in the [User Guide](https://junit.org/junit5/docs/current/user-guide/#api-evolution).
+
+That following describes the deprecation process followed for API items.
+
+To deprecate an item:
+- Update the `@API.status` to `DEPRECATED`.
+- Update `@API.since`. Please note `since` describes the version when the
+  status was changed and not the introduction of the element.
+- Add the `@Deprecated` Java annotation on the item.
+- Add the `@deprecated` JavaDoc tag to describe the deprecation, and refer to
+  an eventual replacement.
+- If the item is used in existing code, add `@SuppressWarnings("deprecation")`
+  to make the build pass.

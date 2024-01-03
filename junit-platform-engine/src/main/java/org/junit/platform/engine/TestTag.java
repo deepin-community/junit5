@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.engine;
@@ -20,7 +20,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import org.apiguardian.api.API;
-import org.junit.platform.commons.util.PreconditionViolationException;
+import org.junit.platform.commons.PreconditionViolationException;
 import org.junit.platform.commons.util.Preconditions;
 import org.junit.platform.commons.util.StringUtils;
 
@@ -58,7 +58,7 @@ public final class TestTag implements Serializable {
 	 * Determine if the supplied tag name is valid with regard to the supported
 	 * syntax for tags.
 	 *
-	 * <h3>Syntax Rules for Tags</h3>
+	 * <h4>Syntax Rules for Tags</h4>
 	 * <ul>
 	 * <li>A tag must not be {@code null}.</li>
 	 * <li>A tag must not be blank.</li>

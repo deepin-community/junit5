@@ -1,58 +1,58 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.engine.descriptor;
-
-import static org.apiguardian.api.API.Status.INTERNAL;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.util.Optional;
 
-import org.apiguardian.api.API;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
+import org.junit.jupiter.api.extension.ExecutableInvoker;
 import org.junit.jupiter.api.extension.ExtensionContext;
-import org.junit.platform.engine.ConfigurationParameters;
+import org.junit.jupiter.api.extension.TestInstances;
+import org.junit.jupiter.engine.config.JupiterConfiguration;
 import org.junit.platform.engine.EngineExecutionListener;
+import org.junit.platform.engine.support.hierarchical.Node;
 import org.junit.platform.engine.support.hierarchical.ThrowableCollector;
 
 /**
  * @since 5.0
  */
-@API(status = INTERNAL, since = "5.0")
-public final class ClassExtensionContext extends AbstractExtensionContext<ClassTestDescriptor> {
+final class ClassExtensionContext extends AbstractExtensionContext<ClassBasedTestDescriptor> {
 
 	private final Lifecycle lifecycle;
 
 	private final ThrowableCollector throwableCollector;
 
-	private Object testInstance;
+	private TestInstances testInstances;
 
 	/**
 	 * Create a new {@code ClassExtensionContext} with {@link Lifecycle#PER_METHOD}.
 	 *
-	 * @see #ClassExtensionContext(ExtensionContext, EngineExecutionListener, ClassTestDescriptor, Lifecycle, ConfigurationParameters, ThrowableCollector)
+	 * @see #ClassExtensionContext(ExtensionContext, EngineExecutionListener, ClassBasedTestDescriptor,
+	 * Lifecycle, JupiterConfiguration, ThrowableCollector, ExecutableInvoker)
 	 */
-	public ClassExtensionContext(ExtensionContext parent, EngineExecutionListener engineExecutionListener,
-			ClassTestDescriptor testDescriptor, ConfigurationParameters configurationParameters,
-			ThrowableCollector throwableCollector) {
+	ClassExtensionContext(ExtensionContext parent, EngineExecutionListener engineExecutionListener,
+			ClassBasedTestDescriptor testDescriptor, JupiterConfiguration configuration,
+			ThrowableCollector throwableCollector, ExecutableInvoker executableInvoker) {
 
-		this(parent, engineExecutionListener, testDescriptor, Lifecycle.PER_METHOD, configurationParameters,
-			throwableCollector);
+		this(parent, engineExecutionListener, testDescriptor, Lifecycle.PER_METHOD, configuration, throwableCollector,
+			executableInvoker);
 	}
 
-	public ClassExtensionContext(ExtensionContext parent, EngineExecutionListener engineExecutionListener,
-			ClassTestDescriptor testDescriptor, Lifecycle lifecycle, ConfigurationParameters configurationParameters,
-			ThrowableCollector throwableCollector) {
+	ClassExtensionContext(ExtensionContext parent, EngineExecutionListener engineExecutionListener,
+			ClassBasedTestDescriptor testDescriptor, Lifecycle lifecycle, JupiterConfiguration configuration,
+			ThrowableCollector throwableCollector, ExecutableInvoker executableInvoker) {
 
-		super(parent, engineExecutionListener, testDescriptor, configurationParameters);
+		super(parent, engineExecutionListener, testDescriptor, configuration, executableInvoker);
 
 		this.lifecycle = lifecycle;
 		this.throwableCollector = throwableCollector;
@@ -73,13 +73,18 @@ public final class ClassExtensionContext extends AbstractExtensionContext<ClassT
 		return Optional.of(this.lifecycle);
 	}
 
-	void setTestInstance(Object testInstance) {
-		this.testInstance = testInstance;
+	@Override
+	public Optional<Object> getTestInstance() {
+		return getTestInstances().map(TestInstances::getInnermostInstance);
 	}
 
 	@Override
-	public Optional<Object> getTestInstance() {
-		return Optional.ofNullable(this.testInstance);
+	public Optional<TestInstances> getTestInstances() {
+		return Optional.ofNullable(testInstances);
+	}
+
+	void setTestInstances(TestInstances testInstances) {
+		this.testInstances = testInstances;
 	}
 
 	@Override
@@ -90,6 +95,11 @@ public final class ClassExtensionContext extends AbstractExtensionContext<ClassT
 	@Override
 	public Optional<Throwable> getExecutionException() {
 		return Optional.ofNullable(this.throwableCollector.getThrowable());
+	}
+
+	@Override
+	protected Node.ExecutionMode getPlatformExecutionMode() {
+		return getTestDescriptor().getExecutionMode();
 	}
 
 }

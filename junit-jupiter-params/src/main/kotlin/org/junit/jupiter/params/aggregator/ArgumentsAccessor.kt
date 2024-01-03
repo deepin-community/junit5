@@ -1,13 +1,17 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
+@file:API(status = API.Status.STABLE, since = "5.7")
+
 package org.junit.jupiter.params.aggregator
+
+import org.apiguardian.api.API
 
 /**
  * Get the value of the argument at the given index as an instance of the
@@ -22,4 +26,4 @@ package org.junit.jupiter.params.aggregator
  */
 @Suppress("EXTENSION_SHADOWED_BY_MEMBER") // method is in fact not shadowed due to reified type
 inline fun <reified T : Any> ArgumentsAccessor.get(index: Int): T =
-        this.get(index, T::class.java)
+    this.get(index, T::class.java)

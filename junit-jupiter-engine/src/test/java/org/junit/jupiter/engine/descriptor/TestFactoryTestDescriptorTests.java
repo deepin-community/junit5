@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.engine.descriptor;
@@ -22,11 +22,13 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.engine.config.JupiterConfiguration;
 import org.junit.jupiter.engine.execution.JupiterEngineExecutionContext;
 import org.junit.platform.engine.TestSource;
 import org.junit.platform.engine.UniqueId;
@@ -34,8 +36,8 @@ import org.junit.platform.engine.support.descriptor.ClasspathResourceSource;
 import org.junit.platform.engine.support.descriptor.DirectorySource;
 import org.junit.platform.engine.support.descriptor.FilePosition;
 import org.junit.platform.engine.support.descriptor.FileSource;
+import org.junit.platform.engine.support.descriptor.MethodSource;
 import org.junit.platform.engine.support.descriptor.UriSource;
-import org.junit.platform.engine.support.hierarchical.Node;
 import org.junit.platform.engine.support.hierarchical.OpenTest4JAwareThrowableCollector;
 
 /**
@@ -96,7 +98,7 @@ class TestFactoryTestDescriptorTests {
 			File file = new File("src/test/resources");
 			assertThat(file).isDirectory();
 
-			URI uri = URI.create("http://example.com?foo=bar&line=42");
+			URI uri = URI.create("https://example.com?foo=bar&line=42");
 			TestSource testSource = TestFactoryTestDescriptor.fromUri(uri);
 
 			assertThat(testSource).isInstanceOf(UriSource.class);
@@ -105,6 +107,18 @@ class TestFactoryTestDescriptorTests {
 			assertThat(source.getUri()).isEqualTo(uri);
 		}
 
+		@Test
+		void methodSourceFromUri() {
+			URI uri = URI.create("method:org.junit.Foo#bar(java.lang.String,%20java.lang.String[])");
+			TestSource testSource = TestFactoryTestDescriptor.fromUri(uri);
+
+			assertThat(testSource).isInstanceOf(MethodSource.class);
+			assertThat(testSource.getClass().getSimpleName()).isEqualTo("MethodSource");
+			MethodSource source = (MethodSource) testSource;
+			assertThat(source.getClassName()).isEqualTo("org.junit.Foo");
+			assertThat(source.getMethodName()).isEqualTo("bar");
+			assertThat(source.getMethodParameterTypes()).isEqualTo("java.lang.String, java.lang.String[]");
+		}
 	}
 
 	@Nested
@@ -114,18 +128,26 @@ class TestFactoryTestDescriptorTests {
 		private ExtensionContext extensionContext;
 		private TestFactoryTestDescriptor descriptor;
 		private boolean isClosed;
+		private JupiterConfiguration jupiterConfiguration;
 
 		@BeforeEach
 		void before() throws Exception {
-			extensionContext = mock(ExtensionContext.class);
+			jupiterConfiguration = mock();
+			when(jupiterConfiguration.getDefaultDisplayNameGenerator()).thenReturn(new DisplayNameGenerator.Standard());
+
+			extensionContext = mock();
 			isClosed = false;
 
-			context = new JupiterEngineExecutionContext(null, null).extend().withThrowableCollector(
-				new OpenTest4JAwareThrowableCollector()).withExtensionContext(extensionContext).build();
+			context = new JupiterEngineExecutionContext(null, null) //
+					.extend() //
+					.withThrowableCollector(new OpenTest4JAwareThrowableCollector()) //
+					.withExtensionContext(extensionContext) //
+					.withExtensionRegistry(mock()) //
+					.build();
 
 			Method testMethod = CustomStreamTestCase.class.getDeclaredMethod("customStream");
 			descriptor = new TestFactoryTestDescriptor(UniqueId.forEngine("engine"), CustomStreamTestCase.class,
-				testMethod);
+				testMethod, jupiterConfiguration);
 			when(extensionContext.getTestMethod()).thenReturn(Optional.of(testMethod));
 		}
 
@@ -134,7 +156,7 @@ class TestFactoryTestDescriptorTests {
 			Stream<DynamicTest> dynamicTestStream = Stream.empty();
 			prepareMockForTestInstanceWithCustomStream(dynamicTestStream);
 
-			descriptor.invokeTestMethod(context, mock(Node.DynamicTestExecutor.class));
+			descriptor.invokeTestMethod(context, mock());
 
 			assertTrue(isClosed);
 		}
@@ -144,7 +166,7 @@ class TestFactoryTestDescriptorTests {
 			Stream<Integer> integerStream = Stream.of(1, 2);
 			prepareMockForTestInstanceWithCustomStream(integerStream);
 
-			descriptor.invokeTestMethod(context, mock(Node.DynamicTestExecutor.class));
+			descriptor.invokeTestMethod(context, mock());
 
 			assertTrue(isClosed);
 		}

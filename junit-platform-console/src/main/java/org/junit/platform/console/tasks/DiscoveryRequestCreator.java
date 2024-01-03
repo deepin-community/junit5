@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.console.tasks;
@@ -23,18 +23,23 @@ import static org.junit.platform.launcher.TagFilter.includeTags;
 import static org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder.request;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import org.junit.platform.commons.util.ModuleUtils;
 import org.junit.platform.commons.util.Preconditions;
 import org.junit.platform.commons.util.ReflectionUtils;
-import org.junit.platform.console.options.CommandLineOptions;
+import org.junit.platform.console.options.TestDiscoveryOptions;
 import org.junit.platform.engine.DiscoverySelector;
+import org.junit.platform.engine.discovery.ClassNameFilter;
+import org.junit.platform.engine.discovery.ClassSelector;
 import org.junit.platform.engine.discovery.ClasspathRootSelector;
-import org.junit.platform.engine.discovery.DiscoverySelectors;
+import org.junit.platform.engine.discovery.IterationSelector;
+import org.junit.platform.engine.discovery.MethodSelector;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 
@@ -43,59 +48,48 @@ import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
  */
 class DiscoveryRequestCreator {
 
-	LauncherDiscoveryRequest toDiscoveryRequest(CommandLineOptions options) {
+	LauncherDiscoveryRequest toDiscoveryRequest(TestDiscoveryOptions options) {
 		LauncherDiscoveryRequestBuilder requestBuilder = request();
-		requestBuilder.selectors(createDiscoverySelectors(options));
-		addFilters(requestBuilder, options);
+		List<? extends DiscoverySelector> selectors = createDiscoverySelectors(options);
+		requestBuilder.selectors(selectors);
+		addFilters(requestBuilder, options, selectors);
 		requestBuilder.configurationParameters(options.getConfigurationParameters());
 		return requestBuilder.build();
 	}
 
-	private List<? extends DiscoverySelector> createDiscoverySelectors(CommandLineOptions options) {
+	private List<? extends DiscoverySelector> createDiscoverySelectors(TestDiscoveryOptions options) {
+		List<DiscoverySelector> explicitSelectors = options.getExplicitSelectors();
 		if (options.isScanClasspath()) {
-			Preconditions.condition(!options.hasExplicitSelectors(),
+			Preconditions.condition(explicitSelectors.isEmpty(),
 				"Scanning the classpath and using explicit selectors at the same time is not supported");
 			return createClasspathRootSelectors(options);
 		}
 		if (options.isScanModulepath()) {
-			Preconditions.condition(!options.hasExplicitSelectors(),
+			Preconditions.condition(explicitSelectors.isEmpty(),
 				"Scanning the module-path and using explicit selectors at the same time is not supported");
 			return selectModules(ModuleUtils.findAllNonSystemBootModuleNames());
 		}
-		return createExplicitDiscoverySelectors(options);
+		return Preconditions.notEmpty(explicitSelectors,
+			"Please specify an explicit selector option or use --scan-class-path or --scan-modules");
 	}
 
-	private List<ClasspathRootSelector> createClasspathRootSelectors(CommandLineOptions options) {
+	private List<ClasspathRootSelector> createClasspathRootSelectors(TestDiscoveryOptions options) {
 		Set<Path> classpathRoots = determineClasspathRoots(options);
 		return selectClasspathRoots(classpathRoots);
 	}
 
-	private Set<Path> determineClasspathRoots(CommandLineOptions options) {
+	private Set<Path> determineClasspathRoots(TestDiscoveryOptions options) {
 		if (options.getSelectedClasspathEntries().isEmpty()) {
 			Set<Path> rootDirs = new LinkedHashSet<>(ReflectionUtils.getAllClasspathRootDirectories());
-			rootDirs.addAll(options.getAdditionalClasspathEntries());
+			rootDirs.addAll(options.getExistingAdditionalClasspathEntries());
 			return rootDirs;
 		}
 		return new LinkedHashSet<>(options.getSelectedClasspathEntries());
 	}
 
-	private List<DiscoverySelector> createExplicitDiscoverySelectors(CommandLineOptions options) {
-		List<DiscoverySelector> selectors = new ArrayList<>();
-		options.getSelectedUris().stream().map(DiscoverySelectors::selectUri).forEach(selectors::add);
-		options.getSelectedFiles().stream().map(DiscoverySelectors::selectFile).forEach(selectors::add);
-		options.getSelectedDirectories().stream().map(DiscoverySelectors::selectDirectory).forEach(selectors::add);
-		options.getSelectedModules().stream().map(DiscoverySelectors::selectModule).forEach(selectors::add);
-		options.getSelectedPackages().stream().map(DiscoverySelectors::selectPackage).forEach(selectors::add);
-		options.getSelectedClasses().stream().map(DiscoverySelectors::selectClass).forEach(selectors::add);
-		options.getSelectedMethods().stream().map(DiscoverySelectors::selectMethod).forEach(selectors::add);
-		options.getSelectedClasspathResources().stream().map(DiscoverySelectors::selectClasspathResource).forEach(
-			selectors::add);
-		Preconditions.notEmpty(selectors, "No arguments were supplied to the ConsoleLauncher");
-		return selectors;
-	}
-
-	private void addFilters(LauncherDiscoveryRequestBuilder requestBuilder, CommandLineOptions options) {
-		requestBuilder.filters(includeClassNamePatterns(options.getIncludedClassNamePatterns().toArray(new String[0])));
+	private void addFilters(LauncherDiscoveryRequestBuilder requestBuilder, TestDiscoveryOptions options,
+			List<? extends DiscoverySelector> selectors) {
+		requestBuilder.filters(includedClassNamePatterns(options, selectors));
 
 		if (!options.getExcludedClassNamePatterns().isEmpty()) {
 			requestBuilder.filters(
@@ -125,6 +119,28 @@ class DiscoveryRequestCreator {
 		if (!options.getExcludedEngines().isEmpty()) {
 			requestBuilder.filters(excludeEngines(options.getExcludedEngines()));
 		}
+	}
+
+	private ClassNameFilter includedClassNamePatterns(TestDiscoveryOptions options,
+			List<? extends DiscoverySelector> selectors) {
+		Stream<String> patternStreams = Stream.concat( //
+			options.getIncludedClassNamePatterns().stream(), //
+			selectors.stream() //
+					.map(selector -> selector instanceof IterationSelector
+							? ((IterationSelector) selector).getParentSelector()
+							: selector) //
+					.map(selector -> {
+						if (selector instanceof ClassSelector) {
+							return ((ClassSelector) selector).getClassName();
+						}
+						if (selector instanceof MethodSelector) {
+							return ((MethodSelector) selector).getClassName();
+						}
+						return null;
+					}) //
+					.filter(Objects::nonNull) //
+					.map(Pattern::quote));
+		return includeClassNamePatterns(patternStreams.toArray(String[]::new));
 	}
 
 }
