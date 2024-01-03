@@ -1,22 +1,25 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package example;
 
-//tag::user_guide[]
+// tag::user_guide[]
+
+import static example.util.StringUtils.isPalindrome;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.DynamicContainer.dynamicContainer;
 import static org.junit.jupiter.api.DynamicTest.dynamicTest;
+import static org.junit.jupiter.api.Named.named;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -27,13 +30,21 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import example.util.Calculator;
+
 import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.function.ThrowingConsumer;
 
+// end::user_guide[]
+// @formatter:off
+// tag::user_guide[]
 class DynamicTestsDemo {
+
+	private final Calculator calculator = new Calculator();
 
 	// end::user_guide[]
 	@Tag("exclude")
@@ -46,91 +57,55 @@ class DynamicTestsDemo {
 
 	@TestFactory
 	Collection<DynamicTest> dynamicTestsFromCollection() {
-		// end::user_guide[]
-		// @formatter:off
-		// tag::user_guide[]
 		return Arrays.asList(
-			dynamicTest("1st dynamic test", () -> assertTrue(true)),
-			dynamicTest("2nd dynamic test", () -> assertEquals(4, 2 * 2))
+			dynamicTest("1st dynamic test", () -> assertTrue(isPalindrome("madam"))),
+			dynamicTest("2nd dynamic test", () -> assertEquals(4, calculator.multiply(2, 2)))
 		);
-		// end::user_guide[]
-		// @formatter:on
-		// tag::user_guide[]
 	}
 
 	@TestFactory
 	Iterable<DynamicTest> dynamicTestsFromIterable() {
-		// end::user_guide[]
-		// @formatter:off
-		// tag::user_guide[]
 		return Arrays.asList(
-			dynamicTest("3rd dynamic test", () -> assertTrue(true)),
-			dynamicTest("4th dynamic test", () -> assertEquals(4, 2 * 2))
+			dynamicTest("3rd dynamic test", () -> assertTrue(isPalindrome("madam"))),
+			dynamicTest("4th dynamic test", () -> assertEquals(4, calculator.multiply(2, 2)))
 		);
-		// end::user_guide[]
-		// @formatter:on
-		// tag::user_guide[]
 	}
 
 	@TestFactory
 	Iterator<DynamicTest> dynamicTestsFromIterator() {
-		// end::user_guide[]
-		// @formatter:off
-		// tag::user_guide[]
 		return Arrays.asList(
-			dynamicTest("5th dynamic test", () -> assertTrue(true)),
-			dynamicTest("6th dynamic test", () -> assertEquals(4, 2 * 2))
+			dynamicTest("5th dynamic test", () -> assertTrue(isPalindrome("madam"))),
+			dynamicTest("6th dynamic test", () -> assertEquals(4, calculator.multiply(2, 2)))
 		).iterator();
-		// end::user_guide[]
-		// @formatter:on
-		// tag::user_guide[]
 	}
 
 	@TestFactory
 	DynamicTest[] dynamicTestsFromArray() {
-		// end::user_guide[]
-		// @formatter:off
-		// tag::user_guide[]
 		return new DynamicTest[] {
-			dynamicTest("7th dynamic test", () -> assertTrue(true)),
-			dynamicTest("8th dynamic test", () -> assertEquals(4, 2 * 2))
+			dynamicTest("7th dynamic test", () -> assertTrue(isPalindrome("madam"))),
+			dynamicTest("8th dynamic test", () -> assertEquals(4, calculator.multiply(2, 2)))
 		};
-		// end::user_guide[]
-		// @formatter:on
-		// tag::user_guide[]
 	}
 
 	@TestFactory
 	Stream<DynamicTest> dynamicTestsFromStream() {
-		// end::user_guide[]
-		// @formatter:off
-		// tag::user_guide[]
-		return Stream.of("A", "B", "C")
-			.map(str -> dynamicTest("test" + str, () -> { /* ... */ }));
-		// end::user_guide[]
-		// @formatter:on
-		// tag::user_guide[]
+		return Stream.of("racecar", "radar", "mom", "dad")
+			.map(text -> dynamicTest(text, () -> assertTrue(isPalindrome(text))));
 	}
 
 	@TestFactory
 	Stream<DynamicTest> dynamicTestsFromIntStream() {
-		// end::user_guide[]
-		// @formatter:off
-		// tag::user_guide[]
 		// Generates tests for the first 10 even integers.
 		return IntStream.iterate(0, n -> n + 2).limit(10)
 			.mapToObj(n -> dynamicTest("test" + n, () -> assertTrue(n % 2 == 0)));
-		// end::user_guide[]
-		// @formatter:on
-		// tag::user_guide[]
 	}
 
 	@TestFactory
-	Stream<DynamicTest> generateRandomNumberOfTests() {
+	Stream<DynamicTest> generateRandomNumberOfTestsFromIterator() {
 
 		// Generates random positive integers between 0 and 100 until
 		// a number evenly divisible by 7 is encountered.
-		Iterator<Integer> inputGenerator = new Iterator<>() {
+		Iterator<Integer> inputGenerator = new Iterator<Integer>() {
 
 			Random random = new Random();
 			// end::user_guide[]
@@ -164,10 +139,37 @@ class DynamicTestsDemo {
 	}
 
 	@TestFactory
+	Stream<DynamicTest> dynamicTestsFromStreamFactoryMethod() {
+		// Stream of palindromes to check
+		Stream<String> inputStream = Stream.of("racecar", "radar", "mom", "dad");
+
+		// Generates display names like: racecar is a palindrome
+		Function<String, String> displayNameGenerator = text -> text + " is a palindrome";
+
+		// Executes tests based on the current input value.
+		ThrowingConsumer<String> testExecutor = text -> assertTrue(isPalindrome(text));
+
+		// Returns a stream of dynamic tests.
+		return DynamicTest.stream(inputStream, displayNameGenerator, testExecutor);
+	}
+
+	@TestFactory
+	Stream<DynamicTest> dynamicTestsFromStreamFactoryMethodWithNames() {
+		// Stream of palindromes to check
+		Stream<Named<String>> inputStream = Stream.of(
+				named("racecar is a palindrome", "racecar"),
+				named("radar is also a palindrome", "radar"),
+				named("mom also seems to be a palindrome", "mom"),
+				named("dad is yet another palindrome", "dad")
+			);
+
+		// Returns a stream of dynamic tests.
+		return DynamicTest.stream(inputStream,
+			text -> assertTrue(isPalindrome(text)));
+	}
+
+	@TestFactory
 	Stream<DynamicNode> dynamicTestsWithContainers() {
-		// end::user_guide[]
-		// @formatter:off
-		// tag::user_guide[]
 		return Stream.of("A", "B", "C")
 			.map(input -> dynamicContainer("Container " + input, Stream.of(
 				dynamicTest("not null", () -> assertNotNull(input)),
@@ -176,9 +178,19 @@ class DynamicTestsDemo {
 					dynamicTest("not empty", () -> assertFalse(input.isEmpty()))
 				))
 			)));
-		// end::user_guide[]
-		// @formatter:on
-		// tag::user_guide[]
+	}
+
+	@TestFactory
+	DynamicNode dynamicNodeSingleTest() {
+		return dynamicTest("'pop' is a palindrome", () -> assertTrue(isPalindrome("pop")));
+	}
+
+	@TestFactory
+	DynamicNode dynamicNodeSingleContainer() {
+		return dynamicContainer("palindromes",
+			Stream.of("racecar", "radar", "mom", "dad")
+				.map(text -> dynamicTest(text, () -> assertTrue(isPalindrome(text)))
+		));
 	}
 
 }

@@ -1,16 +1,16 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.params.provider;
 
-import static org.apiguardian.api.API.Status.EXPERIMENTAL;
+import static org.apiguardian.api.API.Status.STABLE;
 
 import java.util.stream.Stream;
 
@@ -33,7 +33,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
  * @see org.junit.jupiter.params.provider.Arguments
  * @see org.junit.jupiter.params.support.AnnotationConsumer
  */
-@API(status = EXPERIMENTAL, since = "5.0")
+@API(status = STABLE, since = "5.7")
 public interface ArgumentsProvider {
 
 	/**

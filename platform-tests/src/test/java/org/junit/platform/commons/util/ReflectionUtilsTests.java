@@ -1,29 +1,36 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.commons.util;
 
+import static java.time.Duration.ofMillis;
 import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.platform.commons.function.Try.success;
 import static org.junit.platform.commons.util.ReflectionUtils.HierarchyTraversalMode.BOTTOM_UP;
 import static org.junit.platform.commons.util.ReflectionUtils.HierarchyTraversalMode.TOP_DOWN;
+import static org.junit.platform.commons.util.ReflectionUtils.findFields;
 import static org.junit.platform.commons.util.ReflectionUtils.findMethod;
 import static org.junit.platform.commons.util.ReflectionUtils.findMethods;
 import static org.junit.platform.commons.util.ReflectionUtils.invokeMethod;
 import static org.junit.platform.commons.util.ReflectionUtils.readFieldValue;
+import static org.junit.platform.commons.util.ReflectionUtils.tryToReadFieldValue;
 
 import java.io.File;
 import java.io.IOException;
@@ -36,26 +43,40 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.engine.TrackLogRecords;
-import org.junit.jupiter.extensions.TempDirectory;
-import org.junit.jupiter.extensions.TempDirectory.Root;
+import org.junit.jupiter.api.fixtures.TrackLogRecords;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.platform.commons.JUnitException;
+import org.junit.platform.commons.PreconditionViolationException;
 import org.junit.platform.commons.logging.LogRecordListener;
+import org.junit.platform.commons.test.TestClassLoader;
 import org.junit.platform.commons.util.ReflectionUtilsTests.ClassWithNestedClasses.Nested1;
 import org.junit.platform.commons.util.ReflectionUtilsTests.ClassWithNestedClasses.Nested2;
 import org.junit.platform.commons.util.ReflectionUtilsTests.ClassWithNestedClasses.Nested3;
 import org.junit.platform.commons.util.ReflectionUtilsTests.Interface45.Nested5;
 import org.junit.platform.commons.util.ReflectionUtilsTests.InterfaceWithNestedClass.Nested4;
+import org.junit.platform.commons.util.ReflectionUtilsTests.OuterClass.InnerClass;
+import org.junit.platform.commons.util.ReflectionUtilsTests.OuterClass.InnerClass.RecursiveInnerInnerClass;
+import org.junit.platform.commons.util.ReflectionUtilsTests.OuterClass.InnerSiblingClass;
+import org.junit.platform.commons.util.ReflectionUtilsTests.OuterClass.RecursiveInnerClass;
+import org.junit.platform.commons.util.ReflectionUtilsTests.OuterClass.StaticNestedClass;
+import org.junit.platform.commons.util.ReflectionUtilsTests.OuterClass.StaticNestedSiblingClass;
+import org.junit.platform.commons.util.ReflectionUtilsTests.OuterClassImplementingInterface.InnerClassImplementingInterface;
+import org.junit.platform.commons.util.classes.CustomType;
+import org.junit.platform.commons.util.pkg1.SuperclassWithStaticPackagePrivateBeforeMethod;
+import org.junit.platform.commons.util.pkg1.SuperclassWithStaticPackagePrivateTempDirField;
+import org.junit.platform.commons.util.pkg1.subpkg.SubclassWithNonStaticPackagePrivateBeforeMethod;
+import org.junit.platform.commons.util.pkg1.subpkg.SubclassWithNonStaticPackagePrivateTempDirField;
 
 /**
  * Unit tests for {@link ReflectionUtils}.
@@ -77,6 +98,35 @@ class ReflectionUtilsTests {
 
 		assertFalse(ReflectionUtils.isPublic(PrivateClass.class));
 		assertFalse(ReflectionUtils.isPublic(PrivateClass.class.getDeclaredMethod("privateMethod")));
+		assertFalse(ReflectionUtils.isPublic(ProtectedClass.class));
+		assertFalse(ReflectionUtils.isPublic(ProtectedClass.class.getDeclaredMethod("protectedMethod")));
+		assertFalse(ReflectionUtils.isPublic(PackageVisibleClass.class));
+		assertFalse(ReflectionUtils.isPublic(PackageVisibleClass.class.getDeclaredMethod("packageVisibleMethod")));
+	}
+
+	@Test
+	void isPrivate() throws Exception {
+		assertTrue(ReflectionUtils.isPrivate(PrivateClass.class));
+		assertTrue(ReflectionUtils.isPrivate(PrivateClass.class.getDeclaredMethod("privateMethod")));
+
+		assertFalse(ReflectionUtils.isPrivate(PublicClass.class));
+		assertFalse(ReflectionUtils.isPrivate(PublicClass.class.getMethod("publicMethod")));
+		assertFalse(ReflectionUtils.isPrivate(ProtectedClass.class));
+		assertFalse(ReflectionUtils.isPrivate(ProtectedClass.class.getDeclaredMethod("protectedMethod")));
+		assertFalse(ReflectionUtils.isPrivate(PackageVisibleClass.class));
+		assertFalse(ReflectionUtils.isPrivate(PackageVisibleClass.class.getDeclaredMethod("packageVisibleMethod")));
+	}
+
+	@Test
+	void isNotPrivate() throws Exception {
+		assertTrue(ReflectionUtils.isNotPrivate(PublicClass.class));
+		assertTrue(ReflectionUtils.isNotPrivate(PublicClass.class.getDeclaredMethod("publicMethod")));
+		assertTrue(ReflectionUtils.isNotPrivate(ProtectedClass.class));
+		assertTrue(ReflectionUtils.isNotPrivate(ProtectedClass.class.getDeclaredMethod("protectedMethod")));
+		assertTrue(ReflectionUtils.isNotPrivate(PackageVisibleClass.class));
+		assertTrue(ReflectionUtils.isNotPrivate(PackageVisibleClass.class.getDeclaredMethod("packageVisibleMethod")));
+
+		assertFalse(ReflectionUtils.isNotPrivate(PrivateClass.class.getDeclaredMethod("privateMethod")));
 	}
 
 	@Test
@@ -98,6 +148,33 @@ class ReflectionUtilsTests {
 	}
 
 	@Test
+	void isNotStatic() throws Exception {
+		assertTrue(ReflectionUtils.isNotStatic(PublicClass.class));
+		assertTrue(ReflectionUtils.isNotStatic(PublicClass.class.getDeclaredMethod("publicMethod")));
+
+		assertFalse(ReflectionUtils.isNotStatic(StaticClass.class));
+		assertFalse(ReflectionUtils.isNotStatic(StaticClass.class.getDeclaredMethod("staticMethod")));
+	}
+
+	@Test
+	void isFinal() throws Exception {
+		assertTrue(ReflectionUtils.isFinal(FinalClass.class));
+		assertTrue(ReflectionUtils.isFinal(FinalClass.class.getDeclaredMethod("finalMethod")));
+
+		assertFalse(ReflectionUtils.isFinal(PublicClass.class));
+		assertFalse(ReflectionUtils.isFinal(PublicClass.class.getDeclaredMethod("publicMethod")));
+	}
+
+	@Test
+	void isNotFinal() throws Exception {
+		assertTrue(ReflectionUtils.isNotFinal(PublicClass.class));
+		assertTrue(ReflectionUtils.isNotFinal(PublicClass.class.getDeclaredMethod("publicMethod")));
+
+		assertFalse(ReflectionUtils.isNotFinal(FinalClass.class));
+		assertFalse(ReflectionUtils.isNotFinal(FinalClass.class.getDeclaredMethod("finalMethod")));
+	}
+
+	@Test
 	void returnsVoid() throws Exception {
 		Class<?> clazz = ClassWithVoidAndNonVoidMethods.class;
 		assertTrue(ReflectionUtils.returnsVoid(clazz.getDeclaredMethod("voidMethod")));
@@ -115,7 +192,7 @@ class ReflectionUtilsTests {
 
 	@Test
 	void getAllAssignmentCompatibleClasses() {
-		Set<Class<?>> superclasses = ReflectionUtils.getAllAssignmentCompatibleClasses(B.class);
+		var superclasses = ReflectionUtils.getAllAssignmentCompatibleClasses(B.class);
 		assertThat(superclasses).containsExactly(B.class, InterfaceC.class, InterfaceA.class, InterfaceB.class, A.class,
 			InterfaceD.class, Object.class);
 		assertTrue(superclasses.stream().allMatch(clazz -> clazz.isAssignableFrom(B.class)));
@@ -126,51 +203,79 @@ class ReflectionUtilsTests {
 		// @formatter:off
 		assertThat(ReflectionUtils.newInstance(C.class, "one", "two")).isNotNull();
 		assertThat(ReflectionUtils.newInstance(C.class)).isNotNull();
-		assertThat(ReflectionUtils.newInstance(C.class, new Object[0])).isNotNull();
 
 		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.newInstance(C.class, "one", null));
 		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.newInstance(C.class, null, "two"));
 		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.newInstance(C.class, null, null));
 		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.newInstance(C.class, ((Object[]) null)));
 
-		RuntimeException exception = assertThrows(RuntimeException.class, () -> ReflectionUtils.newInstance(Exploder.class));
+		var exception = assertThrows(RuntimeException.class, () -> ReflectionUtils.newInstance(Exploder.class));
 		assertThat(exception).hasMessage("boom");
 		// @formatter:on
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void readFieldValueOfNonexistentStaticField() {
 		assertThat(readFieldValue(MyClass.class, "doesNotExist", null)).isNotPresent();
 		assertThat(readFieldValue(MySubClass.class, "staticField", null)).isNotPresent();
 	}
 
 	@Test
+	void tryToReadFieldValueOfNonexistentStaticField() {
+		assertThrows(NoSuchFieldException.class, () -> tryToReadFieldValue(MyClass.class, "doesNotExist", null).get());
+		assertThrows(NoSuchFieldException.class,
+			() -> tryToReadFieldValue(MySubClass.class, "staticField", null).get());
+	}
+
+	@Test
+	@SuppressWarnings("deprecation")
 	void readFieldValueOfNonexistentInstanceField() {
 		assertThat(readFieldValue(MyClass.class, "doesNotExist", new MyClass(42))).isNotPresent();
 		assertThat(readFieldValue(MyClass.class, "doesNotExist", new MySubClass(42))).isNotPresent();
 	}
 
 	@Test
+	void tryToReadFieldValueOfNonexistentInstanceField() {
+		assertThrows(NoSuchFieldException.class,
+			() -> tryToReadFieldValue(MyClass.class, "doesNotExist", new MyClass(42)).get());
+		assertThrows(NoSuchFieldException.class,
+			() -> tryToReadFieldValue(MyClass.class, "doesNotExist", new MySubClass(42)).get());
+	}
+
+	@Test
+	@SuppressWarnings("deprecation")
 	void readFieldValueOfExistingStaticField() throws Exception {
 		assertThat(readFieldValue(MyClass.class, "staticField", null)).contains(42);
 
-		Field field = MyClass.class.getDeclaredField("staticField");
+		var field = MyClass.class.getDeclaredField("staticField");
 		assertThat(readFieldValue(field)).contains(42);
 		assertThat(readFieldValue(field, null)).contains(42);
 	}
 
 	@Test
+	void tryToReadFieldValueOfExistingStaticField() throws Exception {
+		assertThat(tryToReadFieldValue(MyClass.class, "staticField", null).get()).isEqualTo(42);
+
+		var field = MyClass.class.getDeclaredField("staticField");
+		assertThat(tryToReadFieldValue(field).get()).isEqualTo(42);
+		assertThat(tryToReadFieldValue(field, null).get()).isEqualTo(42);
+	}
+
+	@Test
+	@SuppressWarnings("deprecation")
 	void readFieldValueOfExistingInstanceField() throws Exception {
-		MyClass instance = new MyClass(42);
+		var instance = new MyClass(42);
 		assertThat(readFieldValue(MyClass.class, "instanceField", instance)).contains(42);
 
-		Field field = MyClass.class.getDeclaredField("instanceField");
+		var field = MyClass.class.getDeclaredField("instanceField");
 		assertThat(readFieldValue(field, instance)).contains(42);
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void attemptToReadFieldValueOfExistingInstanceFieldAsStaticField() throws Exception {
-		Field field = MyClass.class.getDeclaredField("instanceField");
+		var field = MyClass.class.getDeclaredField("instanceField");
 		Exception exception = assertThrows(PreconditionViolationException.class, () -> readFieldValue(field, null));
 		assertThat(exception)//
 				.hasMessageStartingWith("Cannot read non-static field")//
@@ -178,46 +283,145 @@ class ReflectionUtilsTests {
 	}
 
 	@Test
-	void isAssignableToForNullClass() {
-		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.isAssignableTo(new Object(), null));
+	void tryToReadFieldValueOfExistingInstanceField() throws Exception {
+		var instance = new MyClass(42);
+		assertThat(tryToReadFieldValue(MyClass.class, "instanceField", instance).get()).isEqualTo(42);
+
+		var field = MyClass.class.getDeclaredField("instanceField");
+		assertThat(tryToReadFieldValue(field, instance).get()).isEqualTo(42);
+		assertThrows(PreconditionViolationException.class, () -> tryToReadFieldValue(field, null).get());
 	}
 
-	@Test
-	void isAssignableTo() {
-		// Reference Types
-		assertTrue(ReflectionUtils.isAssignableTo("string", String.class));
-		assertTrue(ReflectionUtils.isAssignableTo("string", CharSequence.class));
-		assertTrue(ReflectionUtils.isAssignableTo("string", Object.class));
+	@Nested
+	class IsClassAssignableToClassTests {
 
-		assertFalse(ReflectionUtils.isAssignableTo(new Object(), String.class));
-		assertFalse(ReflectionUtils.isAssignableTo(Integer.valueOf("1"), StringBuilder.class));
-		assertFalse(ReflectionUtils.isAssignableTo(new StringBuilder(), String.class));
+		@Test
+		void isAssignableToForNullSourceType() {
+			assertThatExceptionOfType(PreconditionViolationException.class)//
+					.isThrownBy(() -> ReflectionUtils.isAssignableTo(null, getClass()))//
+					.withMessage("source type must not be null");
+		}
 
-		// Arrays
-		assertTrue(ReflectionUtils.isAssignableTo(new int[0], int[].class));
-		assertTrue(ReflectionUtils.isAssignableTo(new double[0], Object.class));
-		assertTrue(ReflectionUtils.isAssignableTo(new String[0], String[].class));
-		assertTrue(ReflectionUtils.isAssignableTo(new String[0], Object.class));
+		@Test
+		void isAssignableToForPrimitiveSourceType() {
+			assertThatExceptionOfType(PreconditionViolationException.class)//
+					.isThrownBy(() -> ReflectionUtils.isAssignableTo(int.class, Integer.class))//
+					.withMessage("source type must not be a primitive type");
+		}
 
-		// Primitive Types
-		assertTrue(ReflectionUtils.isAssignableTo(1, int.class));
-		assertTrue(ReflectionUtils.isAssignableTo(Long.valueOf("1"), long.class));
-		assertTrue(ReflectionUtils.isAssignableTo(Boolean.TRUE, boolean.class));
+		@Test
+		void isAssignableToForNullTargetType() {
+			assertThatExceptionOfType(PreconditionViolationException.class)//
+					.isThrownBy(() -> ReflectionUtils.isAssignableTo(getClass(), null))//
+					.withMessage("target type must not be null");
+		}
 
-		// Widening Conversions to Primitives
-		assertTrue(ReflectionUtils.isAssignableTo(1, long.class));
-		assertTrue(ReflectionUtils.isAssignableTo(1f, double.class));
-		assertTrue(ReflectionUtils.isAssignableTo((byte) 1, double.class));
+		@Test
+		void isAssignableTo() {
+			// Reference Types
+			assertTrue(ReflectionUtils.isAssignableTo(String.class, Object.class));
+			assertTrue(ReflectionUtils.isAssignableTo(String.class, CharSequence.class));
+			assertTrue(ReflectionUtils.isAssignableTo(String.class, String.class));
+			assertTrue(ReflectionUtils.isAssignableTo(Integer.class, Number.class));
+			assertTrue(ReflectionUtils.isAssignableTo(Integer.class, Integer.class));
 
-		// Widening Conversions to Wrappers (not supported by Java)
-		assertFalse(ReflectionUtils.isAssignableTo(1, Long.class));
-		assertFalse(ReflectionUtils.isAssignableTo(1f, Double.class));
-		assertFalse(ReflectionUtils.isAssignableTo((byte) 1, Double.class));
+			assertFalse(ReflectionUtils.isAssignableTo(Object.class, String.class));
+			assertFalse(ReflectionUtils.isAssignableTo(CharSequence.class, String.class));
+			assertFalse(ReflectionUtils.isAssignableTo(Number.class, Integer.class));
 
-		// Narrowing Conversions
-		assertFalse(ReflectionUtils.isAssignableTo(1, char.class));
-		assertFalse(ReflectionUtils.isAssignableTo(1L, byte.class));
-		assertFalse(ReflectionUtils.isAssignableTo(1L, int.class));
+			// Arrays
+			assertTrue(ReflectionUtils.isAssignableTo(int[].class, int[].class));
+			assertTrue(ReflectionUtils.isAssignableTo(double[].class, double[].class));
+			assertTrue(ReflectionUtils.isAssignableTo(double[].class, Object.class));
+			assertTrue(ReflectionUtils.isAssignableTo(String[].class, Object.class));
+			assertTrue(ReflectionUtils.isAssignableTo(String[].class, Object[].class));
+			assertTrue(ReflectionUtils.isAssignableTo(String[].class, String[].class));
+
+			// Wrappers to Primitives
+			assertTrue(ReflectionUtils.isAssignableTo(Integer.class, int.class));
+			assertTrue(ReflectionUtils.isAssignableTo(Boolean.class, boolean.class));
+
+			// Widening Conversions from Wrappers to Primitives
+			assertTrue(ReflectionUtils.isAssignableTo(Integer.class, long.class));
+			assertTrue(ReflectionUtils.isAssignableTo(Float.class, double.class));
+			assertTrue(ReflectionUtils.isAssignableTo(Byte.class, double.class));
+
+			// Widening Conversions from Wrappers to Wrappers (not supported by Java)
+			assertFalse(ReflectionUtils.isAssignableTo(Integer.class, Long.class));
+			assertFalse(ReflectionUtils.isAssignableTo(Float.class, Double.class));
+			assertFalse(ReflectionUtils.isAssignableTo(Byte.class, Double.class));
+
+			// Narrowing Conversions
+			assertFalse(ReflectionUtils.isAssignableTo(Integer.class, char.class));
+			assertFalse(ReflectionUtils.isAssignableTo(Long.class, byte.class));
+			assertFalse(ReflectionUtils.isAssignableTo(Long.class, int.class));
+		}
+
+	}
+
+	@Nested
+	class IsObjectAssignableToClassTests {
+
+		@Test
+		void isAssignableToForNullClass() {
+			assertThrows(PreconditionViolationException.class,
+				() -> ReflectionUtils.isAssignableTo(new Object(), null));
+		}
+
+		@Test
+		void isAssignableTo() {
+			// Reference Types
+			assertTrue(ReflectionUtils.isAssignableTo("string", String.class));
+			assertTrue(ReflectionUtils.isAssignableTo("string", CharSequence.class));
+			assertTrue(ReflectionUtils.isAssignableTo("string", Object.class));
+
+			assertFalse(ReflectionUtils.isAssignableTo(new Object(), String.class));
+			assertFalse(ReflectionUtils.isAssignableTo(Integer.valueOf("1"), StringBuilder.class));
+			assertFalse(ReflectionUtils.isAssignableTo(new StringBuilder(), String.class));
+
+			// Arrays
+			assertTrue(ReflectionUtils.isAssignableTo(new int[0], int[].class));
+			assertTrue(ReflectionUtils.isAssignableTo(new double[0], Object.class));
+			assertTrue(ReflectionUtils.isAssignableTo(new String[0], String[].class));
+			assertTrue(ReflectionUtils.isAssignableTo(new String[0], Object.class));
+
+			// Primitive Types
+			assertTrue(ReflectionUtils.isAssignableTo(1, int.class));
+			assertTrue(ReflectionUtils.isAssignableTo(Long.valueOf("1"), long.class));
+			assertTrue(ReflectionUtils.isAssignableTo(Boolean.TRUE, boolean.class));
+
+			// Widening Conversions to Primitives
+			assertTrue(ReflectionUtils.isAssignableTo(1, long.class));
+			assertTrue(ReflectionUtils.isAssignableTo(1f, double.class));
+			assertTrue(ReflectionUtils.isAssignableTo((byte) 1, double.class));
+
+			// Widening Conversions to Wrappers (not supported by Java)
+			assertFalse(ReflectionUtils.isAssignableTo(1, Long.class));
+			assertFalse(ReflectionUtils.isAssignableTo(1f, Double.class));
+			assertFalse(ReflectionUtils.isAssignableTo((byte) 1, Double.class));
+
+			// Narrowing Conversions
+			assertFalse(ReflectionUtils.isAssignableTo(1, char.class));
+			assertFalse(ReflectionUtils.isAssignableTo(1L, byte.class));
+			assertFalse(ReflectionUtils.isAssignableTo(1L, int.class));
+		}
+
+		@Test
+		void isAssignableToForNullObject() {
+			assertTrue(ReflectionUtils.isAssignableTo((Object) null, Object.class));
+			assertTrue(ReflectionUtils.isAssignableTo((Object) null, String.class));
+			assertTrue(ReflectionUtils.isAssignableTo((Object) null, Long.class));
+			assertTrue(ReflectionUtils.isAssignableTo((Object) null, Character[].class));
+		}
+
+		@Test
+		void isAssignableToForNullObjectAndPrimitive() {
+			assertFalse(ReflectionUtils.isAssignableTo((Object) null, byte.class));
+			assertFalse(ReflectionUtils.isAssignableTo((Object) null, int.class));
+			assertFalse(ReflectionUtils.isAssignableTo((Object) null, long.class));
+			assertFalse(ReflectionUtils.isAssignableTo((Object) null, boolean.class));
+		}
+
 	}
 
 	@Test
@@ -288,22 +492,6 @@ class ReflectionUtilsTests {
 	}
 
 	@Test
-	void isAssignableToForNullObject() {
-		assertTrue(ReflectionUtils.isAssignableTo(null, Object.class));
-		assertTrue(ReflectionUtils.isAssignableTo(null, String.class));
-		assertTrue(ReflectionUtils.isAssignableTo(null, Long.class));
-		assertTrue(ReflectionUtils.isAssignableTo(null, Character[].class));
-	}
-
-	@Test
-	void isAssignableToForNullObjectAndPrimitive() {
-		assertFalse(ReflectionUtils.isAssignableTo(null, byte.class));
-		assertFalse(ReflectionUtils.isAssignableTo(null, int.class));
-		assertFalse(ReflectionUtils.isAssignableTo(null, long.class));
-		assertFalse(ReflectionUtils.isAssignableTo(null, boolean.class));
-	}
-
-	@Test
 	void invokeMethodPreconditions() {
 		// @formatter:off
 		assertThrows(PreconditionViolationException.class, () -> invokeMethod(null, new Object()));
@@ -313,14 +501,14 @@ class ReflectionUtilsTests {
 
 	@Test
 	void invokePublicMethod() throws Exception {
-		InvocationTracker tracker = new InvocationTracker();
+		var tracker = new InvocationTracker();
 		invokeMethod(InvocationTracker.class.getDeclaredMethod("publicMethod"), tracker);
 		assertTrue(tracker.publicMethodInvoked);
 	}
 
 	@Test
 	void invokePrivateMethod() throws Exception {
-		InvocationTracker tracker = new InvocationTracker();
+		var tracker = new InvocationTracker();
 		invokeMethod(InvocationTracker.class.getDeclaredMethod("privateMethod"), tracker);
 		assertTrue(tracker.privateMethodInvoked);
 	}
@@ -338,99 +526,116 @@ class ReflectionUtilsTests {
 	}
 
 	@Test
-	void loadClassPreconditions() {
-		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.loadClass(null));
-		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.loadClass(""));
-		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.loadClass("   "));
+	void tryToLoadClassPreconditions() {
+		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.tryToLoadClass(null));
+		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.tryToLoadClass(""));
+		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.tryToLoadClass("   "));
 
-		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.loadClass(null, null));
-		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.loadClass(getClass().getName(), null));
+		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.tryToLoadClass(null, null));
+		assertThrows(PreconditionViolationException.class,
+			() -> ReflectionUtils.tryToLoadClass(getClass().getName(), null));
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void loadClassWhenClassNotFoundException() {
 		assertThat(ReflectionUtils.loadClass("foo.bar.EnigmaClassThatDoesNotExist")).isEmpty();
 	}
 
 	@Test
+	void tryToLoadClassWhenClassNotFoundException() {
+		assertThrows(ClassNotFoundException.class,
+			() -> ReflectionUtils.tryToLoadClass("foo.bar.EnigmaClassThatDoesNotExist").get());
+	}
+
+	@Test
+	void tryToLoadClassFailsWithinReasonableTimeForInsanelyLargeAndInvalidMultidimensionalPrimitiveArrayName() {
+		// Create a class name of the form int[][][]...[][][]X
+		String className = IntStream.rangeClosed(1, 20_000)//
+				.mapToObj(i -> "[]")//
+				.collect(joining("", "int", "X"));
+
+		// The following should ideally fail in less than 50ms. So we just make
+		// sure it fails in less than 500ms in order to (hopefully) allow the
+		// test to pass on CI servers with limited resources.
+		assertTimeoutPreemptively(ofMillis(500),
+			() -> assertThrows(ClassNotFoundException.class, () -> ReflectionUtils.tryToLoadClass(className).get()));
+	}
+
+	@Test
+	@SuppressWarnings("deprecation")
 	void loadClass() {
-		Optional<Class<?>> optional = ReflectionUtils.loadClass(Integer.class.getName());
+		var optional = ReflectionUtils.loadClass(Integer.class.getName());
 		assertThat(optional).contains(Integer.class);
 	}
 
 	@Test
-	void loadClassTrimsClassName() {
-		Optional<Class<?>> optional = ReflectionUtils.loadClass("  " + Integer.class.getName() + "\t");
-		assertThat(optional).contains(Integer.class);
+	void tryToLoadClass() {
+		assertThat(ReflectionUtils.tryToLoadClass(Integer.class.getName())).isEqualTo(success(Integer.class));
 	}
 
 	@Test
-	void loadClassForPrimitive() {
-		Optional<Class<?>> optional = ReflectionUtils.loadClass(int.class.getName());
-		assertThat(optional).contains(int.class);
+	void tryToLoadClassTrimsClassName() {
+		assertThat(ReflectionUtils.tryToLoadClass("  " + Integer.class.getName() + "\t")).isEqualTo(
+			success(Integer.class));
 	}
 
 	@Test
-	void loadClassForPrimitiveArray() {
-		Optional<Class<?>> optional = ReflectionUtils.loadClass(int[].class.getName());
-		assertThat(optional).contains(int[].class);
+	void tryToLoadClassForPrimitive() {
+		assertThat(ReflectionUtils.tryToLoadClass(int.class.getName())).isEqualTo(success(int.class));
 	}
 
 	@Test
-	void loadClassForPrimitiveArrayUsingSourceCodeSyntax() {
-		Optional<Class<?>> optional = ReflectionUtils.loadClass("int[]");
-		assertThat(optional).contains(int[].class);
+	void tryToLoadClassForPrimitiveArray() {
+		assertThat(ReflectionUtils.tryToLoadClass(int[].class.getName())).isEqualTo(success(int[].class));
 	}
 
 	@Test
-	void loadClassForObjectArray() {
-		Optional<Class<?>> optional = ReflectionUtils.loadClass(String[].class.getName());
-		assertThat(optional).contains(String[].class);
+	void tryToLoadClassForPrimitiveArrayUsingSourceCodeSyntax() {
+		assertThat(ReflectionUtils.tryToLoadClass("int[]")).isEqualTo(success(int[].class));
 	}
 
 	@Test
-	void loadClassForObjectArrayUsingSourceCodeSyntax() {
-		Optional<Class<?>> optional = ReflectionUtils.loadClass("java.lang.String[]");
-		assertThat(optional).contains(String[].class);
+	void tryToLoadClassForObjectArray() {
+		assertThat(ReflectionUtils.tryToLoadClass(String[].class.getName())).isEqualTo(success(String[].class));
 	}
 
 	@Test
-	void loadClassForTwoDimensionalPrimitiveArray() {
-		Optional<Class<?>> optional = ReflectionUtils.loadClass(int[][].class.getName());
-		assertThat(optional).contains(int[][].class);
+	void tryToLoadClassForObjectArrayUsingSourceCodeSyntax() {
+		assertThat(ReflectionUtils.tryToLoadClass("java.lang.String[]")).isEqualTo(success(String[].class));
 	}
 
 	@Test
-	void loadClassForTwoDimensionaldimensionalPrimitiveArrayUsingSourceCodeSyntax() {
-		Optional<Class<?>> optional = ReflectionUtils.loadClass("int[][]");
-		assertThat(optional).contains(int[][].class);
+	void tryToLoadClassForTwoDimensionalPrimitiveArray() {
+		assertThat(ReflectionUtils.tryToLoadClass(int[][].class.getName())).isEqualTo(success(int[][].class));
 	}
 
 	@Test
-	void loadClassForMultidimensionalPrimitiveArray() {
-		String className = int[][][][][].class.getName();
-		Optional<Class<?>> optional = ReflectionUtils.loadClass(className);
-		assertThat(optional).as(className).contains(int[][][][][].class);
+	void tryToLoadClassForTwoDimensionaldimensionalPrimitiveArrayUsingSourceCodeSyntax() {
+		assertThat(ReflectionUtils.tryToLoadClass("int[][]")).isEqualTo(success(int[][].class));
 	}
 
 	@Test
-	void loadClassForMultidimensionalPrimitiveArrayUsingSourceCodeSyntax() {
-		String className = "int[][][][][]";
-		Optional<Class<?>> optional = ReflectionUtils.loadClass(className);
-		assertThat(optional).as(className).contains(int[][][][][].class);
+	void tryToLoadClassForMultidimensionalPrimitiveArray() {
+		assertThat(ReflectionUtils.tryToLoadClass(int[][][][][].class.getName())).isEqualTo(
+			success(int[][][][][].class));
 	}
 
 	@Test
-	void loadClassForMultidimensionalObjectArray() {
-		String className = String[][][][][].class.getName();
-		Optional<Class<?>> optional = ReflectionUtils.loadClass(className);
-		assertThat(optional).as(className).contains(String[][][][][].class);
+	void tryToLoadClassForMultidimensionalPrimitiveArrayUsingSourceCodeSyntax() {
+		assertThat(ReflectionUtils.tryToLoadClass("int[][][][][]")).isEqualTo(success(int[][][][][].class));
 	}
 
 	@Test
-	void loadClassForMultidimensionalObjectArrayUsingSourceCodeSyntax() {
-		Optional<Class<?>> optional = ReflectionUtils.loadClass("java.lang.String[][][][][]");
-		assertThat(optional).contains(String[][][][][].class);
+	void tryToLoadClassForMultidimensionalObjectArray() {
+		assertThat(ReflectionUtils.tryToLoadClass(String[][][][][].class.getName())).isEqualTo(
+			success(String[][][][][].class));
+	}
+
+	@Test
+	void tryToLoadClassForMultidimensionalObjectArrayUsingSourceCodeSyntax() {
+		assertThat(ReflectionUtils.tryToLoadClass("java.lang.String[][][][][]")).isEqualTo(
+			success(String[][][][][].class));
 	}
 
 	@Test
@@ -503,6 +708,7 @@ class ReflectionUtilsTests {
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void getOutermostInstancePreconditions() {
 		// @formatter:off
 		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.getOutermostInstance(null, null));
@@ -512,10 +718,11 @@ class ReflectionUtilsTests {
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void getOutermostInstance() {
-		FirstClass firstClass = new FirstClass();
-		FirstClass.SecondClass secondClass = firstClass.new SecondClass();
-		FirstClass.SecondClass.ThirdClass thirdClass = secondClass.new ThirdClass();
+		var firstClass = new FirstClass();
+		var secondClass = firstClass.new SecondClass();
+		var thirdClass = secondClass.new ThirdClass();
 
 		assertThat(ReflectionUtils.getOutermostInstance(thirdClass, FirstClass.SecondClass.ThirdClass.class))//
 				.contains(thirdClass);
@@ -526,13 +733,12 @@ class ReflectionUtilsTests {
 	}
 
 	@Test
-	@ExtendWith(TempDirectory.class)
-	void getAllClasspathRootDirectories(@Root Path tempDirectory) throws Exception {
-		Path root1 = tempDirectory.resolve("root1").toAbsolutePath();
-		Path root2 = tempDirectory.resolve("root2").toAbsolutePath();
-		String testClassPath = root1 + File.pathSeparator + root2;
+	void getAllClasspathRootDirectories(@TempDir Path tempDirectory) throws Exception {
+		var root1 = tempDirectory.resolve("root1").toAbsolutePath();
+		var root2 = tempDirectory.resolve("root2").toAbsolutePath();
+		var testClassPath = root1 + File.pathSeparator + root2;
 
-		String originalClassPath = System.setProperty("java.class.path", testClassPath);
+		var originalClassPath = System.setProperty("java.class.path", testClassPath);
 		try {
 			createDirectories(root1, root2);
 
@@ -555,9 +761,9 @@ class ReflectionUtilsTests {
 	@Test
 	void findNestedClasses() {
 		// @formatter:off
-		assertThat(ReflectionUtils.findNestedClasses(Object.class, clazz -> true)).isEmpty();
+		assertThat(findNestedClasses(Object.class)).isEmpty();
 
-		assertThat(ReflectionUtils.findNestedClasses(ClassWithNestedClasses.class, clazz -> true))
+		assertThat(findNestedClasses(ClassWithNestedClasses.class))
 			.containsOnly(Nested1.class, Nested2.class, Nested3.class);
 
 		assertThat(ReflectionUtils.findNestedClasses(ClassWithNestedClasses.class, clazz -> clazz.getName().contains("1")))
@@ -566,9 +772,71 @@ class ReflectionUtilsTests {
 		assertThat(ReflectionUtils.findNestedClasses(ClassWithNestedClasses.class, ReflectionUtils::isStatic))
 			.containsExactly(Nested3.class);
 
-		assertThat(ReflectionUtils.findNestedClasses(ClassExtendingClassWithNestedClasses.class, clazz -> true))
+		assertThat(findNestedClasses(ClassExtendingClassWithNestedClasses.class))
 			.containsOnly(Nested1.class, Nested2.class, Nested3.class, Nested4.class, Nested5.class);
+
+		assertThat(findNestedClasses(ClassWithNestedClasses.Nested1.class)).isEmpty();
 		// @formatter:on
+	}
+
+	/**
+	 * @since 1.6
+	 */
+	@Test
+	void findNestedClassesWithSeeminglyRecursiveHierarchies() {
+		assertThat(findNestedClasses(AbstractOuterClass.class))//
+				.containsExactly(AbstractOuterClass.InnerClass.class);
+
+		// OuterClass contains recursive hierarchies, but the non-matching
+		// predicate should prevent cycle detection.
+		// See https://github.com/junit-team/junit5/issues/2249
+		assertThat(ReflectionUtils.findNestedClasses(OuterClass.class, clazz -> false)).isEmpty();
+		// RecursiveInnerInnerClass is part of a recursive hierarchy, but the non-matching
+		// predicate should prevent cycle detection.
+		assertThat(ReflectionUtils.findNestedClasses(RecursiveInnerInnerClass.class, clazz -> false)).isEmpty();
+
+		// Sibling types don't actually result in cycles.
+		assertThat(findNestedClasses(StaticNestedSiblingClass.class))//
+				.containsExactly(AbstractOuterClass.InnerClass.class);
+		assertThat(findNestedClasses(InnerSiblingClass.class))//
+				.containsExactly(AbstractOuterClass.InnerClass.class);
+
+		// Interfaces with static nested classes
+		assertThat(findNestedClasses(OuterClassImplementingInterface.class))//
+				.containsExactly(InnerClassImplementingInterface.class, Nested4.class);
+		assertThat(findNestedClasses(InnerClassImplementingInterface.class))//
+				.containsExactly(Nested4.class);
+	}
+
+	/**
+	 * @since 1.6
+	 */
+	@Test
+	void findNestedClassesWithRecursiveHierarchies() {
+		Runnable runnable1 = () -> assertNestedCycle(OuterClass.class, InnerClass.class, OuterClass.class);
+		Runnable runnable2 = () -> assertNestedCycle(StaticNestedClass.class, InnerClass.class, OuterClass.class);
+		Runnable runnable3 = () -> assertNestedCycle(RecursiveInnerClass.class, OuterClass.class);
+		Runnable runnable4 = () -> assertNestedCycle(RecursiveInnerInnerClass.class, OuterClass.class);
+		Runnable runnable5 = () -> assertNestedCycle(InnerClass.class, RecursiveInnerInnerClass.class,
+			OuterClass.class);
+		Stream.of(runnable1, runnable1, runnable1, runnable2, runnable2, runnable2, runnable3, runnable3, runnable3,
+			runnable4, runnable4, runnable4, runnable5, runnable5, runnable5).parallel().forEach(Runnable::run);
+	}
+
+	private static List<Class<?>> findNestedClasses(Class<?> clazz) {
+		return ReflectionUtils.findNestedClasses(clazz, c -> true);
+	}
+
+	private void assertNestedCycle(Class<?> from, Class<?> to) {
+		assertNestedCycle(from, from, to);
+	}
+
+	private void assertNestedCycle(Class<?> start, Class<?> from, Class<?> to) {
+		assertThatExceptionOfType(JUnitException.class)//
+				.as("expected cycle from %s to %s", from.getSimpleName(), to.getSimpleName())//
+				.isThrownBy(() -> findNestedClasses(start))//
+				.withMessageMatching(String.format("Detected cycle in inner class hierarchy between .+%s and .+%s",
+					from.getSimpleName(), to.getSimpleName()));
 	}
 
 	/**
@@ -577,20 +845,20 @@ class ReflectionUtilsTests {
 	@Test
 	@TrackLogRecords
 	void findNestedClassesWithInvalidNestedClassFile(LogRecordListener listener) throws Exception {
-		URL jarUrl = getClass().getResource("/gh-1436-invalid-nested-class-file.jar");
+		var jarUrl = getClass().getResource("/gh-1436-invalid-nested-class-file.jar");
 
-		try (URLClassLoader classLoader = new URLClassLoader(new URL[] { jarUrl })) {
-			String fqcn = "tests.NestedInterfaceGroovyTests";
-			Class<?> classWithInvalidNestedClassFile = classLoader.loadClass(fqcn);
+		try (var classLoader = new URLClassLoader(new URL[] { jarUrl })) {
+			var fqcn = "tests.NestedInterfaceGroovyTests";
+			var classWithInvalidNestedClassFile = classLoader.loadClass(fqcn);
 
 			assertEquals(fqcn, classWithInvalidNestedClassFile.getName());
-			NoClassDefFoundError noClassDefFoundError = assertThrows(NoClassDefFoundError.class,
-				() -> classWithInvalidNestedClassFile.getDeclaredClasses());
+			var noClassDefFoundError = assertThrows(NoClassDefFoundError.class,
+				classWithInvalidNestedClassFile::getDeclaredClasses);
 			assertEquals("tests/NestedInterfaceGroovyTests$NestedInterface$1", noClassDefFoundError.getMessage());
 
-			assertThat(ReflectionUtils.findNestedClasses(classWithInvalidNestedClassFile, clazz -> true)).isEmpty();
+			assertThat(findNestedClasses(classWithInvalidNestedClassFile)).isEmpty();
 			// @formatter:off
-			String logMessage = listener.stream(ReflectionUtils.class, Level.FINE)
+			var logMessage = listener.stream(ReflectionUtils.class, Level.FINE)
 					.findFirst()
 					.map(LogRecord::getMessage)
 					.orElse("didn't find log record");
@@ -620,24 +888,26 @@ class ReflectionUtilsTests {
 	}
 
 	@Test
-	void getMethodPreconditions() {
-		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.getMethod(null, null));
-		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.getMethod(String.class, null));
-		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.getMethod(null, "hashCode"));
+	void tryToGetMethodPreconditions() {
+		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.tryToGetMethod(null, null));
+		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.tryToGetMethod(String.class, null));
+		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.tryToGetMethod(null, "hashCode"));
 	}
 
 	@Test
-	void getMethod() throws Exception {
-		assertThat(ReflectionUtils.getMethod(Object.class, "hashCode")).contains(Object.class.getMethod("hashCode"));
-		assertThat(ReflectionUtils.getMethod(String.class, "charAt", int.class))//
-				.contains(String.class.getMethod("charAt", int.class));
+	void tryToGetMethod() throws Exception {
+		assertThat(ReflectionUtils.tryToGetMethod(Object.class, "hashCode").get()).isEqualTo(
+			Object.class.getMethod("hashCode"));
+		assertThat(ReflectionUtils.tryToGetMethod(String.class, "charAt", int.class).get())//
+				.isEqualTo(String.class.getMethod("charAt", int.class));
 
-		assertThat(ReflectionUtils.getMethod(Path.class, "subpath", int.class, int.class))//
-				.contains(Path.class.getMethod("subpath", int.class, int.class));
-		assertThat(ReflectionUtils.getMethod(String.class, "chars")).contains(String.class.getMethod("chars"));
+		assertThat(ReflectionUtils.tryToGetMethod(Path.class, "subpath", int.class, int.class).get())//
+				.isEqualTo(Path.class.getMethod("subpath", int.class, int.class));
+		assertThat(ReflectionUtils.tryToGetMethod(String.class, "chars").get()).isEqualTo(
+			String.class.getMethod("chars"));
 
-		assertThat(ReflectionUtils.getMethod(String.class, "noSuchMethod")).isEmpty();
-		assertThat(ReflectionUtils.getMethod(Object.class, "clone", int.class)).isEmpty();
+		assertThat(ReflectionUtils.tryToGetMethod(String.class, "noSuchMethod").toOptional()).isEmpty();
+		assertThat(ReflectionUtils.tryToGetMethod(Object.class, "clone", int.class).toOptional()).isEmpty();
 	}
 
 	@Test
@@ -695,7 +965,7 @@ class ReflectionUtilsTests {
 	@Test
 	void findMethodByParameterTypesInGenericInterface() {
 		Class<?> ifc = InterfaceWithGenericDefaultMethod.class;
-		Optional<Method> method = findMethod(ifc, "foo", Number.class);
+		var method = findMethod(ifc, "foo", Number.class);
 		assertThat(method).isNotEmpty();
 		assertThat(method.get().getName()).isEqualTo("foo");
 	}
@@ -706,7 +976,7 @@ class ReflectionUtilsTests {
 	@Test
 	void findMethodByParameterTypesInGenericInterfaceViaParameterizedSubclass() {
 		Class<?> clazz = InterfaceWithGenericDefaultMethodImpl.class;
-		Optional<Method> method = findMethod(clazz, "foo", Long.class);
+		var method = findMethod(clazz, "foo", Long.class);
 		assertThat(method).isNotEmpty();
 		assertThat(method.get().getName()).isEqualTo("foo");
 
@@ -729,7 +999,7 @@ class ReflectionUtilsTests {
 	void findMethodByParameterTypesWithOverloadedMethodNextToGenericDefaultMethod() {
 		Class<?> clazz = InterfaceWithGenericDefaultMethodImpl.class;
 		Class<?> parameterType = Double.class;
-		Optional<Method> method = findMethod(clazz, "foo", parameterType);
+		var method = findMethod(clazz, "foo", parameterType);
 		assertThat(method).isNotEmpty();
 		assertThat(method.get().getName()).isEqualTo("foo");
 		assertThat(method.get().getParameterTypes()[0]).isEqualTo(parameterType);
@@ -760,17 +1030,48 @@ class ReflectionUtilsTests {
 		assertFindMethodByParameterNames("methodWithMultidimensionalObjectArray", Double[][][][][].class);
 	}
 
+	/**
+	 * @since 5.10
+	 */
+	@Test
+	void findMethodByParameterNamesWithWithCustomTypeFromDifferentClassLoader() throws Exception {
+		var methodName = "customMethod";
+		var customTypeName = CustomType.class.getName();
+		var nestedTypeName = CustomType.NestedType.class.getName();
+
+		try (var testClassLoader = TestClassLoader.forClassNamePrefix(customTypeName)) {
+			var customType = testClassLoader.loadClass(customTypeName);
+			assertThat(customType.getClassLoader()).isSameAs(testClassLoader);
+
+			var optional = findMethod(customType, methodName, nestedTypeName);
+			assertThat(optional).get().satisfies(method -> {
+				assertThat(method.getName()).isEqualTo(methodName);
+
+				var declaringClass = method.getDeclaringClass();
+				assertThat(declaringClass.getClassLoader()).isSameAs(testClassLoader);
+				assertThat(declaringClass.getName()).isEqualTo(customTypeName);
+				assertThat(declaringClass).isNotEqualTo(CustomType.class);
+
+				var parameterTypes = method.getParameterTypes();
+				assertThat(parameterTypes).extracting(Class::getName).containsExactly(nestedTypeName);
+				Class<?> parameterType = parameterTypes[0];
+				assertThat(parameterType).isNotEqualTo(CustomType.NestedType.class);
+				assertThat(parameterType.getClassLoader()).isSameAs(testClassLoader);
+			});
+		}
+	}
+
 	@Test
 	void findMethodByParameterNamesWithParameterizedMapParameter() throws Exception {
-		String methodName = "methodWithParameterizedMap";
+		var methodName = "methodWithParameterizedMap";
 
 		// standard, supported use case
 		assertFindMethodByParameterNames(methodName, Map.class);
 
 		// generic type info in parameter list
-		Method method = getClass().getDeclaredMethod(methodName, Map.class);
-		String genericParameterTypeName = method.getGenericParameterTypes()[0].getTypeName();
-		JUnitException exception = assertThrows(JUnitException.class,
+		var method = getClass().getDeclaredMethod(methodName, Map.class);
+		var genericParameterTypeName = method.getGenericParameterTypes()[0].getTypeName();
+		var exception = assertThrows(JUnitException.class,
 			() -> findMethod(getClass(), methodName, genericParameterTypeName));
 
 		assertThat(exception).hasMessageStartingWith("Failed to load parameter type [java.util.Map<java.lang.String");
@@ -779,8 +1080,8 @@ class ReflectionUtilsTests {
 	private void assertFindMethodByParameterNames(String methodName, Class<?> parameterType)
 			throws NoSuchMethodException {
 
-		Method method = getClass().getDeclaredMethod(methodName, parameterType);
-		Optional<Method> optional = findMethod(getClass(), methodName, parameterType.getName());
+		var method = getClass().getDeclaredMethod(methodName, parameterType);
+		var optional = findMethod(getClass(), methodName, parameterType.getName());
 		assertThat(optional).contains(method);
 	}
 
@@ -811,9 +1112,19 @@ class ReflectionUtilsTests {
 		assertThat(findMethods(clazz, isFooMethod)).hasSize(1);
 	}
 
+	/**
+	 * @since 1.9.1
+	 * @see https://github.com/junit-team/junit5/issues/2993
+	 */
+	@Test
+	void findMethodsFindsDistinctMethodsDeclaredInMultipleInterfaces() {
+		Predicate<Method> isStringsMethod = method -> method.getName().equals("strings");
+		assertThat(findMethods(DoubleInheritedInterfaceMethodTestCase.class, isStringsMethod)).hasSize(1);
+	}
+
 	@Test
 	void findMethodsInObject() {
-		List<Method> methods = findMethods(Object.class, method -> true);
+		var methods = findMethods(Object.class, method -> true);
 		assertNotNull(methods);
 		assertTrue(methods.size() > 10);
 	}
@@ -840,7 +1151,7 @@ class ReflectionUtilsTests {
 		assertTrue(stream(ClassWithSyntheticMethod.class.getDeclaredMethods()).anyMatch(Method::isSynthetic),
 			"ClassWithSyntheticMethod must actually contain at least one synthetic method.");
 
-		List<Method> methods = findMethods(ClassWithSyntheticMethod.class, method -> true);
+		var methods = findMethods(ClassWithSyntheticMethod.class, method -> true);
 		assertThat(methods).isEmpty();
 	}
 
@@ -901,7 +1212,7 @@ class ReflectionUtilsTests {
 				.containsExactly(MethodShadowingChild.class.getMethod("method5", Long.class),
 					MethodShadowingParent.class.getMethod("method5", String.class));
 
-		List<Method> methods = findMethods(MethodShadowingChild.class, method -> true, BOTTOM_UP);
+		var methods = findMethods(MethodShadowingChild.class, method -> true, BOTTOM_UP);
 		assertEquals(6, methods.size());
 		assertThat(methods.subList(0, 3)).containsOnly(MethodShadowingChild.class.getMethod("method4", boolean.class),
 			MethodShadowingChild.class.getMethod("method1", String.class),
@@ -928,7 +1239,7 @@ class ReflectionUtilsTests {
 				.containsExactly(MethodShadowingParent.class.getMethod("method5", String.class),
 					MethodShadowingChild.class.getMethod("method5", Long.class));
 
-		List<Method> methods = findMethods(MethodShadowingChild.class, method -> true, TOP_DOWN);
+		var methods = findMethods(MethodShadowingChild.class, method -> true, TOP_DOWN);
 		assertEquals(6, methods.size());
 		assertEquals(MethodShadowingInterface.class.getMethod("method2", int.class, int.class), methods.get(0));
 		assertThat(methods.subList(1, 3)).containsOnly(
@@ -945,19 +1256,19 @@ class ReflectionUtilsTests {
 		Class<?> parent = StaticMethodHidingParent.class;
 		Class<?> child = StaticMethodHidingChild.class;
 
-		Method ifcMethod2 = ifc.getDeclaredMethod("method2", int.class, int.class);
-		Method childMethod1 = child.getDeclaredMethod("method1", String.class);
-		Method childMethod4 = child.getDeclaredMethod("method4", boolean.class);
-		Method childMethod5 = child.getDeclaredMethod("method5", Long.class);
-		Method parentMethod2 = parent.getDeclaredMethod("method2", int.class, int.class, int.class);
-		Method parentMethod5 = parent.getDeclaredMethod("method5", String.class);
+		var ifcMethod2 = ifc.getDeclaredMethod("method2", int.class, int.class);
+		var childMethod1 = child.getDeclaredMethod("method1", String.class);
+		var childMethod4 = child.getDeclaredMethod("method4", boolean.class);
+		var childMethod5 = child.getDeclaredMethod("method5", Long.class);
+		var parentMethod2 = parent.getDeclaredMethod("method2", int.class, int.class, int.class);
+		var parentMethod5 = parent.getDeclaredMethod("method5", String.class);
 
 		assertThat(findMethods(child, methodContains1, BOTTOM_UP)).containsExactly(childMethod1);
 		assertThat(findMethods(child, methodContains2, BOTTOM_UP)).containsExactly(parentMethod2, ifcMethod2);
 		assertThat(findMethods(child, methodContains4, BOTTOM_UP)).containsExactly(childMethod4);
 		assertThat(findMethods(child, methodContains5, BOTTOM_UP)).containsExactly(childMethod5, parentMethod5);
 
-		List<Method> methods = findMethods(child, method -> true, BOTTOM_UP);
+		var methods = findMethods(child, method -> true, BOTTOM_UP);
 		assertEquals(6, methods.size());
 		assertThat(methods.subList(0, 3)).containsOnly(childMethod1, childMethod4, childMethod5);
 		assertThat(methods.subList(3, 5)).containsOnly(parentMethod2, parentMethod5);
@@ -970,19 +1281,19 @@ class ReflectionUtilsTests {
 		Class<?> parent = StaticMethodHidingParent.class;
 		Class<?> child = StaticMethodHidingChild.class;
 
-		Method ifcMethod2 = ifc.getDeclaredMethod("method2", int.class, int.class);
-		Method childMethod1 = child.getDeclaredMethod("method1", String.class);
-		Method childMethod4 = child.getDeclaredMethod("method4", boolean.class);
-		Method childMethod5 = child.getDeclaredMethod("method5", Long.class);
-		Method parentMethod2 = parent.getDeclaredMethod("method2", int.class, int.class, int.class);
-		Method parentMethod5 = parent.getDeclaredMethod("method5", String.class);
+		var ifcMethod2 = ifc.getDeclaredMethod("method2", int.class, int.class);
+		var childMethod1 = child.getDeclaredMethod("method1", String.class);
+		var childMethod4 = child.getDeclaredMethod("method4", boolean.class);
+		var childMethod5 = child.getDeclaredMethod("method5", Long.class);
+		var parentMethod2 = parent.getDeclaredMethod("method2", int.class, int.class, int.class);
+		var parentMethod5 = parent.getDeclaredMethod("method5", String.class);
 
 		assertThat(findMethods(child, methodContains1, TOP_DOWN)).containsExactly(childMethod1);
 		assertThat(findMethods(child, methodContains2, TOP_DOWN)).containsExactly(ifcMethod2, parentMethod2);
 		assertThat(findMethods(child, methodContains4, TOP_DOWN)).containsExactly(childMethod4);
 		assertThat(findMethods(child, methodContains5, TOP_DOWN)).containsExactly(parentMethod5, childMethod5);
 
-		List<Method> methods = findMethods(child, method -> true, TOP_DOWN);
+		var methods = findMethods(child, method -> true, TOP_DOWN);
 		assertEquals(6, methods.size());
 		assertEquals(ifcMethod2, methods.get(0));
 		assertThat(methods.subList(1, 3)).containsOnly(parentMethod2, parentMethod5);
@@ -994,7 +1305,7 @@ class ReflectionUtilsTests {
 		Class<?> clazz = InterfaceWithGenericDefaultMethodImpl.class;
 
 		// Search for all foo(*) methods.
-		List<Method> methods = findMethods(clazz, isFooMethod);
+		var methods = findMethods(clazz, isFooMethod);
 
 		// One might expect or desire that the signature for the generic foo(N)
 		// default method would be "foo(java.lang.Long)" when looked up via the
@@ -1008,8 +1319,8 @@ class ReflectionUtilsTests {
 		Class<?> clazz = InterfaceWithOverriddenGenericDefaultMethodImpl.class;
 
 		// Search for all foo(*) methods.
-		List<Method> methods = findMethods(clazz, isFooMethod);
-		List<String> signatures = signaturesOf(methods);
+		var methods = findMethods(clazz, isFooMethod);
+		var signatures = signaturesOf(methods);
 
 		// Although the subsequent assertion covers this case as well, this
 		// assertion is in place to provide a more informative failure message.
@@ -1033,24 +1344,151 @@ class ReflectionUtilsTests {
 		assertTrue(PublicChildClass.class.getDeclaredMethod("method1").isBridge());
 		assertTrue(PublicChildClass.class.getDeclaredMethod("method3").isBridge());
 
-		List<Method> methods = findMethods(PublicChildClass.class, method -> true);
-		List<String> signatures = signaturesOf(methods);
+		var methods = findMethods(PublicChildClass.class, method -> true);
+		var signatures = signaturesOf(methods);
 		assertThat(signatures).containsOnly("method1()", "method2()", "method3()", "otherMethod1()", "otherMethod2()");
 		assertEquals(0, methods.stream().filter(Method::isBridge).count());
 	}
 
+	/**
+	 * @see https://github.com/junit-team/junit5/issues/3498
+	 */
 	@Test
-	void isGeneric() throws Exception {
-		for (Method method : Generic.class.getMethods()) {
+	void findMethodsAppliesPredicateBeforeSearchingTypeHierarchy() throws Exception {
+		final String BEFORE = "before";
+		Class<?> superclass = SuperclassWithStaticPackagePrivateBeforeMethod.class;
+		Method staticMethod = superclass.getDeclaredMethod(BEFORE);
+		Class<?> subclass = SubclassWithNonStaticPackagePrivateBeforeMethod.class;
+		Method nonStaticMethod = subclass.getDeclaredMethod(BEFORE);
+
+		// Prerequisite
+		var methods = findMethods(superclass, ReflectionUtils::isStatic);
+		assertThat(methods).containsExactly(staticMethod);
+
+		// Actual use cases for this test
+		methods = findMethods(subclass, ReflectionUtils::isStatic);
+		assertThat(methods).containsExactly(staticMethod);
+		methods = findMethods(subclass, ReflectionUtils::isNotStatic);
+		assertThat(methods).containsExactly(nonStaticMethod);
+	}
+
+	@Test
+	void isGeneric() {
+		for (var method : Generic.class.getMethods()) {
 			assertTrue(ReflectionUtils.isGeneric(method));
 		}
-		for (Method method : PublicClass.class.getMethods()) {
+		for (var method : PublicClass.class.getMethods()) {
 			assertFalse(ReflectionUtils.isGeneric(method));
 		}
 	}
 
+	/**
+	 * @see https://github.com/junit-team/junit5/issues/3532
+	 */
+	@Test
+	void findFieldsAppliesPredicateBeforeSearchingTypeHierarchy() throws Exception {
+		final String TEMP_DIR = "tempDir";
+		Class<?> superclass = SuperclassWithStaticPackagePrivateTempDirField.class;
+		Field staticField = superclass.getDeclaredField(TEMP_DIR);
+		Class<?> subclass = SubclassWithNonStaticPackagePrivateTempDirField.class;
+		Field nonStaticField = subclass.getDeclaredField(TEMP_DIR);
+
+		// Prerequisite
+		var fields = findFields(superclass, ReflectionUtils::isStatic, TOP_DOWN);
+		assertThat(fields).containsExactly(staticField);
+
+		// Actual use cases for this test
+		fields = findFields(subclass, ReflectionUtils::isStatic, TOP_DOWN);
+		assertThat(fields).containsExactly(staticField);
+		fields = findFields(subclass, ReflectionUtils::isNotStatic, TOP_DOWN);
+		assertThat(fields).containsExactly(nonStaticField);
+	}
+
+	@Test
+	void readFieldValuesPreconditions() {
+		assertThrows(PreconditionViolationException.class, () -> ReflectionUtils.readFieldValues(null, new Object()));
+		assertThrows(PreconditionViolationException.class,
+			() -> ReflectionUtils.readFieldValues(new ArrayList<>(), new Object(), null));
+	}
+
+	@Test
+	void readFieldValuesFromInstance() {
+		var fields = findFields(ClassWithFields.class, f -> true, TOP_DOWN);
+
+		var values = ReflectionUtils.readFieldValues(fields, new ClassWithFields());
+
+		assertThat(values).containsExactly("enigma", 3.14, "text", 2.5, null, 42, "constant", 99);
+	}
+
+	@Test
+	void readFieldValuesFromClass() {
+		var fields = findFields(ClassWithFields.class, ReflectionUtils::isStatic, TOP_DOWN);
+
+		var values = ReflectionUtils.readFieldValues(fields, null);
+
+		assertThat(values).containsExactly(2.5, "constant", 99);
+	}
+
+	@Test
+	void readFieldValuesFromInstanceWithTypeFilterForString() {
+		var fields = findFields(ClassWithFields.class, isA(String.class), TOP_DOWN);
+
+		var values = ReflectionUtils.readFieldValues(fields, new ClassWithFields(), isA(String.class));
+
+		assertThat(values).containsExactly("enigma", "text", null, "constant");
+	}
+
+	@Test
+	void readFieldValuesFromClassWithTypeFilterForString() {
+		var fields = findFields(ClassWithFields.class, isA(String.class).and(ReflectionUtils::isStatic), TOP_DOWN);
+
+		var values = ReflectionUtils.readFieldValues(fields, null, isA(String.class));
+
+		assertThat(values).containsExactly("constant");
+	}
+
+	@Test
+	void readFieldValuesFromInstanceWithTypeFilterForInteger() {
+		var fields = findFields(ClassWithFields.class, isA(int.class), TOP_DOWN);
+
+		var values = ReflectionUtils.readFieldValues(fields, new ClassWithFields(), isA(int.class));
+
+		assertThat(values).containsExactly(42);
+	}
+
+	@Test
+	void readFieldValuesFromClassWithTypeFilterForInteger() {
+		var fields = findFields(ClassWithFields.class, isA(Integer.class).and(ReflectionUtils::isStatic), TOP_DOWN);
+
+		var values = ReflectionUtils.readFieldValues(fields, null, isA(Integer.class));
+
+		assertThat(values).containsExactly(99);
+	}
+
+	@Test
+	void readFieldValuesFromInstanceWithTypeFilterForDouble() {
+		var fields = findFields(ClassWithFields.class, isA(double.class), TOP_DOWN);
+
+		var values = ReflectionUtils.readFieldValues(fields, new ClassWithFields(), isA(double.class));
+
+		assertThat(values).containsExactly(3.14);
+	}
+
+	@Test
+	void readFieldValuesFromClassWithTypeFilterForDouble() {
+		var fields = findFields(ClassWithFields.class, isA(Double.class).and(ReflectionUtils::isStatic), TOP_DOWN);
+
+		var values = ReflectionUtils.readFieldValues(fields, null, isA(Double.class));
+
+		assertThat(values).containsExactly(2.5);
+	}
+
+	private Predicate<Field> isA(Class<?> type) {
+		return f -> f.getType().isAssignableFrom(type);
+	}
+
 	private static void createDirectories(Path... paths) throws IOException {
-		for (Path path : paths) {
+		for (var path : paths) {
 			Files.createDirectory(path);
 		}
 	}
@@ -1076,6 +1514,21 @@ class ReflectionUtilsTests {
 	}
 
 	void methodWithParameterizedMap(Map<String, String> map) {
+	}
+
+	interface StringsInterface1 {
+		static Stream<String> strings() {
+			return Stream.of("abc", "def");
+		}
+	}
+
+	interface StringsInterface2 extends StringsInterface1 {
+	}
+
+	/**
+	 * Inherits strings() from interfaces StringsInterface1 and StringsInterface2.
+	 */
+	static class DoubleInheritedInterfaceMethodTestCase implements StringsInterface1, StringsInterface2 {
 	}
 
 	interface Generic<X, Y, Z extends X> {
@@ -1223,6 +1676,27 @@ class ReflectionUtilsTests {
 		}
 	}
 
+	protected class ProtectedClass {
+
+		@SuppressWarnings("unused")
+		protected void protectedMethod() {
+		}
+	}
+
+	class PackageVisibleClass {
+
+		@SuppressWarnings("unused")
+		void packageVisibleMethod() {
+		}
+	}
+
+	final class FinalClass {
+
+		@SuppressWarnings("unused")
+		final void finalMethod() {
+		}
+	}
+
 	abstract static class AbstractClass {
 
 		abstract void abstractMethod();
@@ -1314,6 +1788,40 @@ class ReflectionUtilsTests {
 	}
 
 	static class ClassExtendingClassWithNestedClasses extends ClassWithNestedClasses implements Interface45 {
+	}
+
+	abstract static class AbstractOuterClass {
+
+		class InnerClass {
+		}
+	}
+
+	static class OuterClass extends AbstractOuterClass {
+
+		// sibling of OuterClass due to common super type
+		static class StaticNestedSiblingClass extends AbstractOuterClass {
+		}
+
+		// sibling of OuterClass due to common super type
+		class InnerSiblingClass extends AbstractOuterClass {
+		}
+
+		static class StaticNestedClass extends OuterClass {
+		}
+
+		class RecursiveInnerClass extends OuterClass {
+		}
+
+		class InnerClass {
+			class RecursiveInnerInnerClass extends OuterClass {
+			}
+		}
+	}
+
+	static class OuterClassImplementingInterface implements InterfaceWithNestedClass {
+
+		class InnerClassImplementingInterface implements InterfaceWithNestedClass {
+		}
 	}
 
 	static class GrandparentClass {
@@ -1434,6 +1942,27 @@ class ReflectionUtilsTests {
 		@Override
 		public void otherMethod2() {
 		}
+	}
+
+	public static class ClassWithFields {
+
+		public static final String CONST = "constant";
+
+		public static final Integer CONST_INTEGER = 99;
+
+		public static final Double CONST_DOUBLE = 2.5;
+
+		public final String stringField = "text";
+
+		@SuppressWarnings("unused")
+		private final String privateStringField = "enigma";
+
+		final String nullStringField = null;
+
+		public final int integerField = 42;
+
+		public final double doubleField = 3.14;
+
 	}
 
 	@SuppressWarnings("unused")

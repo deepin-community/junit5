@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.api.function;
@@ -22,7 +22,7 @@ import org.apiguardian.api.API;
  * <p>The {@code Executable} interface is similar to {@link java.lang.Runnable},
  * except that an {@code Executable} can throw any kind of exception.
  *
- * <h4>Rationale for throwing {@code Throwable} instead of {@code Exception}</h4>
+ * <h2>Rationale for throwing {@code Throwable} instead of {@code Exception}</h2>
  *
  * <p>Although Java applications typically throw exceptions that are instances
  * of {@link java.lang.Exception}, {@link java.lang.RuntimeException},

@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.engine.descriptor;
@@ -18,6 +18,7 @@ import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DynamicContainer;
 import org.junit.jupiter.api.DynamicNode;
+import org.junit.jupiter.engine.config.JupiterConfiguration;
 import org.junit.jupiter.engine.execution.JupiterEngineExecutionContext;
 import org.junit.platform.commons.util.Preconditions;
 import org.junit.platform.engine.TestDescriptor;
@@ -36,9 +37,10 @@ class DynamicContainerTestDescriptor extends DynamicNodeTestDescriptor {
 	private final DynamicDescendantFilter dynamicDescendantFilter;
 
 	DynamicContainerTestDescriptor(UniqueId uniqueId, int index, DynamicContainer dynamicContainer,
-			TestSource testSource, DynamicDescendantFilter dynamicDescendantFilter) {
+			TestSource testSource, DynamicDescendantFilter dynamicDescendantFilter,
+			JupiterConfiguration configuration) {
 
-		super(uniqueId, index, dynamicContainer, testSource);
+		super(uniqueId, index, dynamicContainer, testSource, configuration);
 		this.dynamicContainer = dynamicContainer;
 		this.testSource = testSource;
 		this.dynamicDescendantFilter = dynamicDescendantFilter;
@@ -56,8 +58,10 @@ class DynamicContainerTestDescriptor extends DynamicNodeTestDescriptor {
 		AtomicInteger index = new AtomicInteger(1);
 		try (Stream<? extends DynamicNode> children = dynamicContainer.getChildren()) {
 			// @formatter:off
-			children.peek(child -> Preconditions.notNull(child, "individual dynamic node must not be null"))
-					.map(child -> toDynamicDescriptor(index.getAndIncrement(), child))
+			children.map(child -> {
+						Preconditions.notNull(child, "individual dynamic node must not be null");
+						return toDynamicDescriptor(index.getAndIncrement(), child);
+					})
 					.filter(Optional::isPresent)
 					.map(Optional::get)
 					.forEachOrdered(dynamicTestExecutor::execute);
@@ -67,7 +71,7 @@ class DynamicContainerTestDescriptor extends DynamicNodeTestDescriptor {
 	}
 
 	private Optional<JupiterTestDescriptor> toDynamicDescriptor(int index, DynamicNode childNode) {
-		return createDynamicDescriptor(this, childNode, index, testSource, dynamicDescendantFilter);
+		return createDynamicDescriptor(this, childNode, index, testSource, dynamicDescendantFilter, configuration);
 	}
 
 }

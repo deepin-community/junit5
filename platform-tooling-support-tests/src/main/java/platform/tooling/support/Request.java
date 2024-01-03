@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package platform.tooling.support;
@@ -24,6 +24,7 @@ import java.util.stream.Stream;
 import de.sormuras.bartholdy.Configuration;
 import de.sormuras.bartholdy.Result;
 import de.sormuras.bartholdy.Tool;
+import de.sormuras.bartholdy.tool.Maven;
 
 import org.apache.commons.io.FileUtils;
 
@@ -32,12 +33,16 @@ import org.apache.commons.io.FileUtils;
  */
 public class Request {
 
-	private static final Path projects = Paths.get("projects");
-	private static final Path toolPath = Paths.get("build", "test-tools");
+	public static final Path PROJECTS = Paths.get("projects");
+	private static final Path TOOLS = Paths.get("build", "test-tools");
 	public static final Path WORKSPACE = Paths.get("build", "test-workspace");
 
 	public static Builder builder() {
 		return new Builder();
+	}
+
+	public static Maven maven() {
+		return new Maven(Path.of(System.getProperty("mavenDistribution")));
 	}
 
 	private Tool tool;
@@ -73,22 +78,28 @@ public class Request {
 	}
 
 	public Result run() {
+		return run(true);
+	}
+
+	public Result run(boolean cleanWorkspace) {
 		try {
 			// sanity check
-			if (!Files.isDirectory(projects)) {
+			if (!Files.isDirectory(PROJECTS)) {
 				var cwd = Paths.get(".").normalize().toAbsolutePath();
-				throw new IllegalStateException("Directory " + projects + " not found in: " + cwd);
+				throw new IllegalStateException("Directory " + PROJECTS + " not found in: " + cwd);
 			}
 
-			Files.createDirectories(toolPath);
+			Files.createDirectories(TOOLS);
 			Files.createDirectories(WORKSPACE);
 
-			// prepare workspace
 			var workspace = WORKSPACE.resolve(getWorkspace());
-			FileUtils.deleteQuietly(workspace.toFile());
-			var project = projects.resolve(getProject());
-			if (Files.isDirectory(project)) {
-				FileUtils.copyDirectory(project.toFile(), workspace.toFile(), getCopyProjectToWorkspaceFileFilter());
+			if (cleanWorkspace) {
+				FileUtils.deleteQuietly(workspace.toFile());
+				var project = PROJECTS.resolve(getProject());
+				if (Files.isDirectory(project)) {
+					var filter = getCopyProjectToWorkspaceFileFilter();
+					FileUtils.copyDirectory(project.toFile(), workspace.toFile(), filter);
+				}
 			}
 
 			var configuration = Configuration.builder();
@@ -97,7 +108,10 @@ public class Request {
 			configuration.setTimeout(getTimeout());
 			configuration.getEnvironment().putAll(getEnvironment());
 
-			return tool.run(configuration.build());
+			var result = tool.run(configuration.build());
+			System.out.println(result.getOutput("out"));
+			System.err.println(result.getOutput("err"));
+			return result;
 		}
 		catch (Exception e) {
 			throw new IllegalStateException("run failed", e);
@@ -130,6 +144,10 @@ public class Request {
 		public Builder setTool(Tool tool) {
 			request.tool = tool;
 			return this;
+		}
+
+		public Builder setJavaHome(Path javaHome) {
+			return putEnvironment("JAVA_HOME", javaHome.normalize().toAbsolutePath().toString());
 		}
 
 		public Builder setProject(String project) {

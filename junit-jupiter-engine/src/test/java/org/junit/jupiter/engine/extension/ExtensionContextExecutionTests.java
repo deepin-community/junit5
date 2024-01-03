@@ -1,18 +1,17 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.engine.extension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
-import static org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder.request;
 
 import java.lang.reflect.Method;
 import java.util.Optional;
@@ -22,11 +21,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
-import org.junit.jupiter.api.extension.ParameterContext;
-import org.junit.jupiter.api.extension.ParameterResolutionException;
-import org.junit.jupiter.api.extension.ParameterResolver;
+import org.junit.jupiter.api.extension.ExtensionContextParameterResolver;
 import org.junit.jupiter.engine.AbstractJupiterTestEngineTests;
-import org.junit.platform.engine.test.event.ExecutionEventRecorder;
 
 class ExtensionContextExecutionTests extends AbstractJupiterTestEngineTests {
 
@@ -47,28 +43,13 @@ class ExtensionContextExecutionTests extends AbstractJupiterTestEngineTests {
 		assertThat(engineExtensionContext.orElse(null).getParent()).isEmpty();
 	}
 
-	static class ExtensionContextParameterResolver implements ParameterResolver {
-		@Override
-		public boolean supportsParameter(ParameterContext parameterContext, ExtensionContext extensionContext)
-				throws ParameterResolutionException {
-			return ExtensionContext.class.equals(parameterContext.getParameter().getType());
-		}
-
-		@Override
-		public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext)
-				throws ParameterResolutionException {
-			return extensionContext;
-		}
-	}
-
 	@Test
 	void twoTestClassesCanShareStateViaEngineExtensionContext() {
 		Parent.counter.set(0);
 
-		ExecutionEventRecorder eventRecorder = executeTests(
-			request().selectors(selectClass(A.class), selectClass(B.class)).build());
+		executeTests(selectClass(A.class), selectClass(B.class)).testEvents()//
+				.assertStatistics(stats -> stats.started(2));
 
-		assertThat(eventRecorder.getTestFinishedCount()).isEqualTo(2);
 		assertThat(Parent.counter).hasValue(1);
 	}
 
@@ -89,7 +70,7 @@ class ExtensionContextExecutionTests extends AbstractJupiterTestEngineTests {
 
 	static class OnlyIncrementCounterOnce implements BeforeAllCallback {
 		@Override
-		public void beforeAll(ExtensionContext context) throws Exception {
+		public void beforeAll(ExtensionContext context) {
 			ExtensionContext.Store store = getRoot(context).getStore(ExtensionContext.Namespace.GLOBAL);
 			store.getOrComputeIfAbsent("counter", key -> Parent.counter.incrementAndGet());
 		}

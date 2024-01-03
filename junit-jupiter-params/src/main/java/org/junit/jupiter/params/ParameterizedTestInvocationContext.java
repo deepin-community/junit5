@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.params;
@@ -25,12 +25,14 @@ class ParameterizedTestInvocationContext implements TestTemplateInvocationContex
 	private final ParameterizedTestNameFormatter formatter;
 	private final ParameterizedTestMethodContext methodContext;
 	private final Object[] arguments;
+	private final int invocationIndex;
 
 	ParameterizedTestInvocationContext(ParameterizedTestNameFormatter formatter,
-			ParameterizedTestMethodContext methodContext, Object[] arguments) {
+			ParameterizedTestMethodContext methodContext, Object[] arguments, int invocationIndex) {
 		this.formatter = formatter;
 		this.methodContext = methodContext;
 		this.arguments = arguments;
+		this.invocationIndex = invocationIndex;
 	}
 
 	@Override
@@ -40,7 +42,8 @@ class ParameterizedTestInvocationContext implements TestTemplateInvocationContex
 
 	@Override
 	public List<Extension> getAdditionalExtensions() {
-		return singletonList(new ParameterizedTestParameterResolver(this.methodContext, this.arguments));
+		return singletonList(
+			new ParameterizedTestParameterResolver(this.methodContext, this.arguments, this.invocationIndex));
 	}
 
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.engine;
@@ -39,10 +39,10 @@ import org.junit.platform.commons.util.PackageUtils;
  * Jupiter are meta-annotated with {@code @Testable}. Consult the Javadoc for
  * {@code @Testable} for further details.
  *
+ * @since 1.0
  * @see org.junit.platform.engine.EngineDiscoveryRequest
  * @see org.junit.platform.engine.ExecutionRequest
  * @see org.junit.platform.commons.annotation.Testable
- * @since 1.0
  */
 @API(status = STABLE, since = "1.0")
 public interface TestEngine {
@@ -91,7 +91,7 @@ public interface TestEngine {
 	 *
 	 * <p>This information is used solely for debugging and reporting purposes.
 	 *
-	 * <p>The default implementation simply returns an empty {@link Optional},
+	 * <p>The default implementation returns an empty {@link Optional},
 	 * signaling that the group ID is unknown.
 	 *
 	 * <p>Concrete test engine implementations may override this method in
@@ -121,7 +121,7 @@ public interface TestEngine {
 	 * {@link Package} instance with the attributes from the manifest.
 	 *
 	 * <p>If the implementation title cannot be queried from the package
-	 * attributes, the default implementation simply returns an empty
+	 * attributes, the default implementation returns an empty
 	 * {@link Optional}.
 	 *
 	 * <p>Concrete test engine implementations may override this method in

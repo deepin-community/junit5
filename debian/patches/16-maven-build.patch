@@ -1,0 +1,1117 @@
+Description: Alternative build system using Maven replacing Gradle until
+ a more recent version is available in Debian
+Author: Emmanuel Bourg <ebourg@apache.org>
+Origin: https://github.com/ebourg/junit5-maven-build
+Forwarded: not-needed
+--- /dev/null
++++ b/junit-bom/pom.xml
+@@ -0,0 +1,111 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit</groupId>
++  <artifactId>junit-bom</artifactId>
++  <version>5.10.1</version>
++  <packaging>pom</packaging>
++  <name>JUnit 5 (Bill of Materials)</name>
++  <description>This Bill of Materials POM can be used to ease dependency management when referencing multiple JUnit artifacts using Gradle or Maven.</description>
++
++  <dependencyManagement>
++    <dependencies>
++      <dependency>
++        <groupId>org.junit.jupiter</groupId>
++        <artifactId>junit-jupiter</artifactId>
++        <version>${project.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.jupiter</groupId>
++        <artifactId>junit-jupiter-api</artifactId>
++        <version>${project.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.jupiter</groupId>
++        <artifactId>junit-jupiter-engine</artifactId>
++        <version>${project.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.jupiter</groupId>
++        <artifactId>junit-jupiter-migrationsupport</artifactId>
++        <version>${project.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.jupiter</groupId>
++        <artifactId>junit-jupiter-params</artifactId>
++        <version>${project.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.platform</groupId>
++        <artifactId>junit-platform-commons</artifactId>
++        <version>${platform.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.platform</groupId>
++        <artifactId>junit-platform-console</artifactId>
++        <version>${platform.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.platform</groupId>
++        <artifactId>junit-platform-engine</artifactId>
++        <version>${platform.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.platform</groupId>
++        <artifactId>junit-platform-jfr</artifactId>
++        <version>${platform.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.platform</groupId>
++        <artifactId>junit-platform-launcher</artifactId>
++        <version>${platform.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.platform</groupId>
++        <artifactId>junit-platform-reporting</artifactId>
++        <version>${platform.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.platform</groupId>
++        <artifactId>junit-platform-runner</artifactId>
++        <version>${platform.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.platform</groupId>
++        <artifactId>junit-platform-suite</artifactId>
++        <version>${platform.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.platform</groupId>
++        <artifactId>junit-platform-suite-api</artifactId>
++        <version>${platform.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.platform</groupId>
++        <artifactId>junit-platform-suite-commons</artifactId>
++        <version>${platform.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.platform</groupId>
++        <artifactId>junit-platform-suite-engine</artifactId>
++        <version>${platform.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.platform</groupId>
++        <artifactId>junit-platform-testkit</artifactId>
++        <version>${platform.version}</version>
++      </dependency>
++      <dependency>
++        <groupId>org.junit.vintage</groupId>
++        <artifactId>junit-vintage-engine</artifactId>
++        <version>${project.version}</version>
++      </dependency>
++    </dependencies>
++  </dependencyManagement>
++</project>
+--- /dev/null
++++ b/junit-jupiter-api/pom.xml
+@@ -0,0 +1,63 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.jupiter</groupId>
++  <artifactId>junit-jupiter-api</artifactId>
++  <version>5.10.1</version>
++  <name>JUnit Jupiter API</name>
++  <description>Module "junit-jupiter-api" of JUnit 5.</description>
++
++  <properties>
++    <kotlin.version>1.5.31</kotlin.version>
++  </properties>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.opentest4j</groupId>
++      <artifactId>opentest4j</artifactId>
++      <version>1.2.0</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-commons</artifactId>
++      <version>${platform.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.jetbrains.kotlin</groupId>
++      <artifactId>kotlin-stdlib</artifactId>
++      <version>${kotlin.version}</version>
++      <scope>provided</scope>
++    </dependency>
++  </dependencies>
++
++  <build>
++    <plugins>
++      <plugin>
++        <groupId>org.jetbrains.kotlin</groupId>
++        <artifactId>kotlin-maven-plugin</artifactId>
++        <version>${kotlin.version}</version>
++        <executions>
++          <execution>
++            <id>compile</id>
++            <phase>process-sources</phase>
++            <goals>
++              <goal>compile</goal>
++            </goals>
++            <configuration>
++              <sourceDirs>
++                <source>src/main/java</source>
++                <source>src/main/kotlin</source>
++              </sourceDirs>
++            </configuration>
++          </execution>
++        </executions>
++      </plugin>
++    </plugins>
++  </build>
++</project>
+--- /dev/null
++++ b/junit-jupiter-engine/pom.xml
+@@ -0,0 +1,47 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.jupiter</groupId>
++  <artifactId>junit-jupiter-engine</artifactId>
++  <version>5.10.1</version>
++  <name>JUnit Jupiter Engine</name>
++  <description>Module "junit-jupiter-engine" of JUnit 5.</description>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-engine</artifactId>
++      <version>1.9.1</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.jupiter</groupId>
++      <artifactId>junit-jupiter-api</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-suite-api</artifactId>
++      <version>${platform.version}</version>
++      <scope>test</scope>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-testkit</artifactId>
++      <version>${platform.version}</version>
++      <scope>test</scope>
++    </dependency>
++    <dependency>
++      <groupId>org.mockito</groupId>
++      <artifactId>mockito-junit-jupiter</artifactId>
++      <version>4.1.0</version>
++      <scope>test</scope>
++    </dependency>
++  </dependencies>
++</project>
+--- /dev/null
++++ b/junit-jupiter-migrationsupport/pom.xml
+@@ -0,0 +1,28 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.jupiter</groupId>
++  <artifactId>junit-jupiter-migrationsupport</artifactId>
++  <version>5.10.1</version>
++  <name>JUnit Jupiter Migration Support</name>
++  <description>Module "junit-jupiter-migrationsupport" of JUnit 5.</description>
++
++  <dependencies>
++    <dependency>
++      <groupId>junit</groupId>
++      <artifactId>junit</artifactId>
++      <version>4.13.2</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.jupiter</groupId>
++      <artifactId>junit-jupiter-api</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++  </dependencies>
++</project>
+--- /dev/null
++++ b/junit-jupiter-params/pom.xml
+@@ -0,0 +1,60 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.jupiter</groupId>
++  <artifactId>junit-jupiter-params</artifactId>
++  <version>5.10.1</version>
++  <name>JUnit Jupiter Params</name>
++  <description>Module "junit-jupiter-params" of JUnit 5.</description>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.junit.jupiter</groupId>
++      <artifactId>junit-jupiter-api</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++
++    <dependency>
++      <groupId>com.univocity</groupId>
++      <artifactId>univocity-parsers</artifactId>
++      <version>2.9.1</version>
++    </dependency>
++  </dependencies>
++
++  <build>
++    <plugins>
++      <plugin>
++        <groupId>org.apache.maven.plugins</groupId>
++        <artifactId>maven-shade-plugin</artifactId>
++        <version>3.3.0</version>
++        <executions>
++          <execution>
++            <phase>package</phase>
++            <goals>
++              <goal>shade</goal>
++            </goals>
++            <configuration>
++              <artifactSet>
++                <includes>
++                  <include>com.univocity:univocity-parsers</include>
++                </includes>
++              </artifactSet>
++              <relocations>
++                <relocation>
++                  <pattern>com.univocity</pattern>
++                  <shadedPattern>org.junit.jupiter.params.shadow.com.univocity</shadedPattern>
++                </relocation>
++              </relocations>
++            </configuration>
++          </execution>
++        </executions>
++      </plugin>
++    </plugins>
++  </build>
++</project>
+--- /dev/null
++++ b/junit-jupiter/pom.xml
+@@ -0,0 +1,35 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.jupiter</groupId>
++  <artifactId>junit-jupiter</artifactId>
++  <version>5.10.1</version>
++  <name>JUnit Jupiter (Aggregator)</name>
++  <description>Module "junit-jupiter" of JUnit 5.</description>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.junit.jupiter</groupId>
++      <artifactId>junit-jupiter-api</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.jupiter</groupId>
++      <artifactId>junit-jupiter-params</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.jupiter</groupId>
++      <artifactId>junit-jupiter-engine</artifactId>
++      <version>${project.version}</version>
++      <scope>runtime</scope>
++    </dependency>
++  </dependencies>
++
++</project>
+--- /dev/null
++++ b/junit-platform-commons/pom.xml
+@@ -0,0 +1,16 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.platform</groupId>
++  <artifactId>junit-platform-commons</artifactId>
++  <version>1.9.1</version>
++  <name>JUnit Platform Commons</name>
++  <description>Module "junit-platform-commons" of JUnit 5.</description>
++
++</project>
+--- /dev/null
++++ b/junit-platform-console-standalone/pom.xml
+@@ -0,0 +1,106 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.platform</groupId>
++  <artifactId>junit-platform-console-standalone</artifactId>
++  <version>1.9.1</version>
++  <name>JUnit Platform Console Standalone</name>
++  <description>Module "junit-platform-console-standalone" of JUnit 5.</description>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-console</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-reporting</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-suite</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.jupiter</groupId>
++      <artifactId>junit-jupiter-engine</artifactId>
++      <version>${parent.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.jupiter</groupId>
++      <artifactId>junit-jupiter-params</artifactId>
++      <version>${parent.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.vintage</groupId>
++      <artifactId>junit-vintage-engine</artifactId>
++      <version>${parent.version}</version>
++    </dependency>
++  </dependencies>
++
++  <build>
++    <plugins>
++      <plugin>
++        <groupId>org.apache.maven.plugins</groupId>
++        <artifactId>maven-jar-plugin</artifactId>
++        <version>3.3.0</version>
++        <configuration>
++          <archive>
++            <manifest>
++              <mainClass>org.junit.platform.console.ConsoleLauncher</mainClass>
++            </manifest>
++          </archive>
++        </configuration>
++      </plugin>
++      <plugin>
++        <groupId>org.apache.maven.plugins</groupId>
++        <artifactId>maven-shade-plugin</artifactId>
++        <version>3.3.0</version>
++        <executions>
++          <execution>
++            <phase>package</phase>
++            <goals>
++              <goal>shade</goal>
++            </goals>
++            <configuration>
++              <artifactSet>
++                <includes>
++                  <include>*:*</include>
++                </includes>
++                <excludes>
++                  <exclude>com.univocity:univocity-parsers</exclude>
++                  <exclude>info.picocli:picocli</exclude>
++                  <exclude>org.opentest4j.reporting:open-test-reporting-events</exclude>
++                </excludes>
++              </artifactSet>
++              <filters>
++                <filter>
++                  <artifact>*:*</artifact>
++                  <excludes>
++                    <exclude>**/module-info.class</exclude>
++                    <exclude>**/package-info.class</exclude>
++                    <exclude>META-INF/LICENSE-open-test-reporting.md</exclude>
++                    <exclude>META-INF/maven/**</exclude>
++                    <exclude>org/opentest4j/reporting/schema/*</exclude>
++                  </excludes>
++                </filter>
++              </filters>
++              <transformers>
++                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
++              </transformers>
++            </configuration>
++          </execution>
++        </executions>
++      </plugin>
++    </plugins>
++  </build>
++
++</project>
+--- /dev/null
++++ b/junit-platform-console/pom.xml
+@@ -0,0 +1,71 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.platform</groupId>
++  <artifactId>junit-platform-console</artifactId>
++  <version>1.9.1</version>
++  <name>JUnit Platform Console</name>
++  <description>Module "junit-platform-console" of JUnit 5.</description>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-reporting</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>info.picocli</groupId>
++      <artifactId>picocli</artifactId>
++      <version>4.6.2</version>
++    </dependency>
++  </dependencies>
++
++  <build>
++    <plugins>
++      <plugin>
++        <groupId>org.apache.maven.plugins</groupId>
++        <artifactId>maven-jar-plugin</artifactId>
++        <version>3.3.0</version>
++        <configuration>
++          <archive>
++            <manifest>
++              <mainClass>org.junit.platform.console.ConsoleLauncher</mainClass>
++            </manifest>
++          </archive>
++        </configuration>
++      </plugin>
++      <plugin>
++        <groupId>org.apache.maven.plugins</groupId>
++        <artifactId>maven-shade-plugin</artifactId>
++        <version>3.3.0</version>
++        <executions>
++          <execution>
++            <phase>package</phase>
++            <goals>
++              <goal>shade</goal>
++            </goals>
++            <configuration>
++              <artifactSet>
++                <includes>
++                  <include>info.picocli:picocli</include>
++                </includes>
++              </artifactSet>
++              <relocations>
++                <relocation>
++                  <pattern>picocli</pattern>
++                  <shadedPattern>org.junit.platform.console.shadow.picocli</shadedPattern>
++                </relocation>
++              </relocations>
++            </configuration>
++          </execution>
++        </executions>
++      </plugin>
++    </plugins>
++  </build>
++</project>
+--- /dev/null
++++ b/junit-platform-engine/pom.xml
+@@ -0,0 +1,28 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.platform</groupId>
++  <artifactId>junit-platform-engine</artifactId>
++  <version>1.9.1</version>
++  <name>JUnit Platform Engine API</name>
++  <description>Module "junit-platform-engine" of JUnit 5.</description>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.opentest4j</groupId>
++      <artifactId>opentest4j</artifactId>
++      <version>1.2.0</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-commons</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++  </dependencies>
++</project>
+--- /dev/null
++++ b/junit-platform-launcher/pom.xml
+@@ -0,0 +1,23 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.platform</groupId>
++  <artifactId>junit-platform-launcher</artifactId>
++  <version>1.9.1</version>
++  <name>JUnit Platform Launcher</name>
++  <description>Module "junit-platform-launcher" of JUnit 5.</description>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-engine</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++  </dependencies>
++</project>
+--- /dev/null
++++ b/junit-platform-reporting/pom.xml
+@@ -0,0 +1,60 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.platform</groupId>
++  <artifactId>junit-platform-reporting</artifactId>
++  <version>1.9.1</version>
++  <name>JUnit Platform Reporting</name>
++  <description>Module "junit-platform-reporting" of JUnit 5.</description>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-launcher</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.opentest4j.reporting</groupId>
++      <artifactId>open-test-reporting-events</artifactId>
++      <version>0.1.0-M1</version>
++    </dependency>
++  </dependencies>
++
++  <build>
++    <plugins>
++      <plugin>
++        <groupId>org.apache.maven.plugins</groupId>
++        <artifactId>maven-shade-plugin</artifactId>
++        <version>3.3.0</version>
++        <executions>
++          <execution>
++            <phase>package</phase>
++            <goals>
++              <goal>shade</goal>
++            </goals>
++            <configuration>
++              <artifactSet>
++                <includes>
++                  <include>org.opentest4j.reporting:open-test-reporting-events</include>
++                </includes>
++              </artifactSet>
++              <relocations>
++                <relocation>
++                  <pattern>org.opentest4j.reporting</pattern>
++                  <shadedPattern>org.junit.platform.reporting.shadow.org.opentest4j.reporting</shadedPattern>
++                </relocation>
++              </relocations>
++            </configuration>
++          </execution>
++        </executions>
++      </plugin>
++    </plugins>
++  </build>
++
++</project>
+--- /dev/null
++++ b/junit-platform-runner/pom.xml
+@@ -0,0 +1,39 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.platform</groupId>
++  <artifactId>junit-platform-runner</artifactId>
++  <version>1.9.1</version>
++  <name>JUnit Platform Runner</name>
++  <description>Module "junit-platform-runner" of JUnit 5.</description>
++
++  <dependencies>
++    <dependency>
++      <groupId>junit</groupId>
++      <artifactId>junit</artifactId>
++      <version>4.13.2</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-launcher</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-suite-api</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-suite-commons</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++  </dependencies>
++
++</project>
+--- /dev/null
++++ b/junit-platform-suite-api/pom.xml
+@@ -0,0 +1,24 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.platform</groupId>
++  <artifactId>junit-platform-suite-api</artifactId>
++  <version>1.9.1</version>
++  <name>JUnit Platform Suite API</name>
++  <description>Module "junit-platform-suite-api" of JUnit 5.</description>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-commons</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++  </dependencies>
++
++</project>
+--- /dev/null
++++ b/junit-platform-suite-commons/pom.xml
+@@ -0,0 +1,34 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.platform</groupId>
++  <artifactId>junit-platform-suite-commons</artifactId>
++  <version>1.9.1</version>
++  <name>JUnit Platform Suite Commons</name>
++  <description>Module "junit-platform-suite-commons" of JUnit 5.</description>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-launcher</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-engine</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-suite-api</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++  </dependencies>
++
++</project>
+--- /dev/null
++++ b/junit-platform-suite-engine/pom.xml
+@@ -0,0 +1,34 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.platform</groupId>
++  <artifactId>junit-platform-suite-engine</artifactId>
++  <version>1.9.1</version>
++  <name>JUnit Platform Suite Engine</name>
++  <description>Module "junit-platform-suite-engine" of JUnit 5.</description>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-engine</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-suite-api</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-suite-commons</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++  </dependencies>
++
++</project>
+--- /dev/null
++++ b/junit-platform-suite/pom.xml
+@@ -0,0 +1,29 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.platform</groupId>
++  <artifactId>junit-platform-suite</artifactId>
++  <version>1.9.1</version>
++  <name>JUnit Platform Suite (Aggregator)</name>
++  <description>Module "junit-platform-suite" of JUnit 5.</description>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-suite-api</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-suite-engine</artifactId>
++      <version>${project.version}</version>
++    </dependency>
++  </dependencies>
++
++</project>
+--- /dev/null
++++ b/junit-vintage-engine/pom.xml
+@@ -0,0 +1,29 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <parent>
++    <groupId>org.junit</groupId>
++    <artifactId>junit-parent</artifactId>
++    <version>5.10.1</version>
++    <relativePath>../pom.xml</relativePath>
++  </parent>
++  <groupId>org.junit.vintage</groupId>
++  <artifactId>junit-vintage-engine</artifactId>
++  <version>5.10.1</version>
++  <name>JUnit Vintage Engine</name>
++  <description>Module "junit-vintage-engine" of JUnit 5.</description>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.junit.platform</groupId>
++      <artifactId>junit-platform-engine</artifactId>
++      <version>${platform.version}</version>
++    </dependency>
++    <dependency>
++      <groupId>junit</groupId>
++      <artifactId>junit</artifactId>
++      <version>4.13.2</version>
++    </dependency>
++  </dependencies>
++
++</project>
+--- /dev/null
++++ b/pom.xml
+@@ -0,0 +1,218 @@
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <groupId>org.junit</groupId>
++  <artifactId>junit-parent</artifactId>
++  <version>5.10.1</version>
++  <packaging>pom</packaging>
++  <name>JUnit 5 (Parent)</name>
++
++  <url>https://junit.org/junit5/</url>
++
++  <licenses>
++    <license>
++      <name>Eclipse Public License v2.0</name>
++      <url>https://www.eclipse.org/legal/epl-v20.html</url>
++    </license>
++  </licenses>
++
++  <developers>
++    <developer>
++      <id>bechte</id>
++      <name>Stefan Bechtold</name>
++      <email>stefan.bechtold@me.com</email>
++    </developer>
++    <developer>
++      <id>jlink</id>
++      <name>Johannes Link</name>
++      <email>business@johanneslink.net</email>
++    </developer>
++    <developer>
++      <id>marcphilipp</id>
++      <name>Marc Philipp</name>
++      <email>mail@marcphilipp.de</email>
++    </developer>
++    <developer>
++      <id>mmerdes</id>
++      <name>Matthias Merdes</name>
++      <email>matthias.merdes@heidelpay.com</email>
++    </developer>
++    <developer>
++      <id>sbrannen</id>
++      <name>Sam Brannen</name>
++      <email>sam@sambrannen.com</email>
++    </developer>
++    <developer>
++      <id>sormuras</id>
++      <name>Christian Stein</name>
++      <email>sormuras@gmail.com</email>
++    </developer>
++    <developer>
++      <id>juliette-derancourt</id>
++      <name>Juliette de Rancourt</name>
++      <email>derancourt.juliette@gmail.com</email>
++    </developer>
++  </developers>
++
++  <scm>
++    <connection>scm:git:git://github.com/junit-team/junit5.git</connection>
++    <developerConnection>scm:git:git://github.com/junit-team/junit5.git</developerConnection>
++    <url>https://github.com/junit-team/junit5</url>
++  </scm>
++
++  <properties>
++    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
++    <platform.version>1.9.1</platform.version>
++  </properties>
++
++  <modules>
++    <module>junit-bom</module>
++    <module>junit-jupiter</module>
++    <module>junit-jupiter-api</module>
++    <module>junit-jupiter-engine</module>
++    <module>junit-jupiter-migrationsupport</module>
++    <module>junit-jupiter-params</module>
++    <module>junit-platform-commons</module>
++    <module>junit-platform-console</module>
++    <module>junit-platform-console-standalone</module>
++    <module>junit-platform-engine</module>
++    <module>junit-platform-launcher</module>
++    <module>junit-platform-reporting</module>
++    <module>junit-platform-runner</module>
++    <module>junit-platform-suite</module>
++    <module>junit-platform-suite-api</module>
++    <module>junit-platform-suite-commons</module>
++    <module>junit-platform-suite-engine</module>
++    <module>junit-vintage-engine</module>
++  </modules>
++
++  <build>
++    <pluginManagement>
++      <plugins>
++        <plugin>
++          <artifactId>maven-compiler-plugin</artifactId>
++          <version>3.10.1</version>
++          <executions>
++            <execution>
++              <id>default-compile</id>
++              <phase>compile</phase>
++              <goals>
++                <goal>compile</goal>
++              </goals>
++              <configuration>
++                <source>8</source>
++                <target>8</target>
++              </configuration>
++            </execution>
++            <execution>
++              <id>compile-java-9</id>
++              <phase>compile</phase>
++              <goals>
++                <goal>compile</goal>
++              </goals>
++              <configuration>
++                <release>9</release>
++                <compileSourceRoots>
++                  <compileSourceRoot>${project.basedir}/src/main/java9</compileSourceRoot>
++                </compileSourceRoots>
++                <multiReleaseOutput>true</multiReleaseOutput>
++              </configuration>
++            </execution>
++            <!--
++            <execution>
++              <id>compile-java-17</id>
++              <phase>compile</phase>
++              <goals>
++                <goal>compile</goal>
++              </goals>
++              <configuration>
++                <release>17</release>
++                <compileSourceRoots>
++                  <compileSourceRoot>${project.basedir}/src/main/java17</compileSourceRoot>
++                </compileSourceRoots>
++                <multiReleaseOutput>true</multiReleaseOutput>
++              </configuration>
++            </execution>
++            -->
++            <!--
++            <execution>
++              <id>compile-module-info</id>
++              <phase>compile</phase>
++              <goals>
++                <goal>compile</goal>
++              </goals>
++              <configuration>
++                <release>9</release>
++                <compileSourceRoots>
++                  <compileSourceRoot>${project.basedir}/src/module</compileSourceRoot>
++                </compileSourceRoots>
++              </configuration>
++            </execution>
++            -->
++          </executions>
++          <configuration>
++            <testSource>17</testSource>
++            <testTarget>17</testTarget>
++          </configuration>
++        </plugin>
++        <plugin>
++          <groupId>org.apache.maven.plugins</groupId>
++          <artifactId>maven-jar-plugin</artifactId>
++          <version>3.3.0</version>
++          <configuration>
++            <archive>
++              <addMavenDescriptor>false</addMavenDescriptor>
++              <manifestEntries>
++                <Multi-Release>true</Multi-Release>
++              </manifestEntries>
++            </archive>
++          </configuration>
++        </plugin>
++      </plugins>
++    </pluginManagement>
++
++    <plugins>
++      <plugin>
++        <groupId>org.codehaus.mojo</groupId>
++        <artifactId>build-helper-maven-plugin</artifactId>
++        <version>3.2.0</version>
++        <executions>
++          <execution>
++            <phase>generate-resources</phase>
++            <goals>
++              <goal>add-resource</goal>
++            </goals>
++            <configuration>
++              <resources>
++                <resource>
++                  <directory>../</directory>
++                  <targetPath>META-INF/</targetPath>
++                  <includes>
++                    <include>LICENSE.md</include>
++                    <include>LICENSE-notice.md</include>
++                  </includes>
++                </resource>
++                <resource>
++                  <directory>.</directory>
++                  <targetPath>META-INF/</targetPath>
++                  <includes>
++                    <include>LICENSE-*.md</include>
++                  </includes>
++                </resource>
++              </resources>
++            </configuration>
++          </execution>
++        </executions>
++      </plugin>
++    </plugins>
++  </build>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.apiguardian</groupId>
++      <artifactId>apiguardian-api</artifactId>
++      <version>1.1.2</version>
++    </dependency>
++  </dependencies>
++
++</project>

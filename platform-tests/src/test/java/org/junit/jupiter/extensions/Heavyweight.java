@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.extensions;
@@ -18,7 +18,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
-import org.junit.jupiter.api.extension.ExtensionContext.Store;
 import org.junit.jupiter.api.extension.ExtensionContext.Store.CloseableResource;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolver;
@@ -26,7 +25,7 @@ import org.junit.jupiter.api.extension.ParameterResolver;
 public class Heavyweight implements ParameterResolver, BeforeEachCallback {
 
 	@Override
-	public void beforeEach(ExtensionContext context) throws Exception {
+	public void beforeEach(ExtensionContext context) {
 		context.getStore(ExtensionContext.Namespace.GLOBAL).put("once", new CloseableOnlyOnceResource());
 	}
 
@@ -37,9 +36,9 @@ public class Heavyweight implements ParameterResolver, BeforeEachCallback {
 
 	@Override
 	public Object resolveParameter(ParameterContext parameterContext, ExtensionContext context) {
-		ExtensionContext engineContext = context.getRoot();
-		Store store = engineContext.getStore(ExtensionContext.Namespace.GLOBAL);
-		ResourceValue resource = store.getOrComputeIfAbsent(ResourceValue.class);
+		var engineContext = context.getRoot();
+		var store = engineContext.getStore(ExtensionContext.Namespace.GLOBAL);
+		var resource = store.getOrComputeIfAbsent(ResourceValue.class);
 		resource.usages.incrementAndGet();
 		return resource;
 	}
@@ -58,9 +57,9 @@ public class Heavyweight implements ParameterResolver, BeforeEachCallback {
 	 * {@link ResourceValue#close()} method implementation is needed to comply
 	 * with both interfaces.
 	 */
-	private static class ResourceValue implements Resource, CloseableResource, AutoCloseable {
+	static class ResourceValue implements Resource, CloseableResource, AutoCloseable {
 
-		private static final AtomicInteger creations = new AtomicInteger();
+		static final AtomicInteger creations = new AtomicInteger();
 		private final AtomicInteger usages = new AtomicInteger();
 
 		@SuppressWarnings("unused") // used via reflection

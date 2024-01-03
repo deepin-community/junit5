@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.api;
@@ -108,6 +108,20 @@ class AssertDoesNotThrowAssertionsTests {
 	}
 
 	@Test
+	void assertDoesNotThrowWithExecutableThatThrowsACheckedExceptionWithMessage() {
+		String message = "Checked exception message";
+		try {
+			assertDoesNotThrow((Executable) () -> {
+				throw new IOException(message);
+			});
+			expectAssertionFailedError();
+		}
+		catch (AssertionFailedError ex) {
+			assertMessageEquals(ex, "Unexpected exception thrown: " + IOException.class.getName() + ": " + message);
+		}
+	}
+
+	@Test
 	void assertDoesNotThrowWithExecutableThatThrowsARuntimeException() {
 		try {
 			assertDoesNotThrow((Executable) () -> {
@@ -117,6 +131,21 @@ class AssertDoesNotThrowAssertionsTests {
 		}
 		catch (AssertionFailedError ex) {
 			assertMessageEquals(ex, "Unexpected exception thrown: " + IllegalStateException.class.getName());
+		}
+	}
+
+	@Test
+	void assertDoesNotThrowWithExecutableThatThrowsARuntimeExceptionWithMessage() {
+		String message = "Runtime exception message";
+		try {
+			assertDoesNotThrow((Executable) () -> {
+				throw new IllegalStateException(message);
+			});
+			expectAssertionFailedError();
+		}
+		catch (AssertionFailedError ex) {
+			assertMessageEquals(ex,
+				"Unexpected exception thrown: " + IllegalStateException.class.getName() + ": " + message);
 		}
 	}
 
@@ -146,6 +175,21 @@ class AssertDoesNotThrowAssertionsTests {
 	}
 
 	@Test
+	void assertDoesNotThrowWithExecutableThatThrowsAnExceptionWithMessageWithMessageString() {
+		String message = "Runtime exception message";
+		try {
+			assertDoesNotThrow((Executable) () -> {
+				throw new IllegalStateException(message);
+			}, "Custom message");
+			expectAssertionFailedError();
+		}
+		catch (AssertionFailedError ex) {
+			assertMessageEquals(ex, "Custom message ==> Unexpected exception thrown: "
+					+ IllegalStateException.class.getName() + ": " + message);
+		}
+	}
+
+	@Test
 	void assertDoesNotThrowWithExecutableThatThrowsAnExceptionWithMessageSupplier() {
 		try {
 			assertDoesNotThrow((Executable) () -> {
@@ -156,6 +200,21 @@ class AssertDoesNotThrowAssertionsTests {
 		catch (AssertionFailedError ex) {
 			assertMessageEquals(ex,
 				"Custom message ==> Unexpected exception thrown: " + IllegalStateException.class.getName());
+		}
+	}
+
+	@Test
+	void assertDoesNotThrowWithExecutableThatThrowsAnExceptionWithMessageWithMessageSupplier() {
+		String message = "Runtime exception message";
+		try {
+			assertDoesNotThrow((Executable) () -> {
+				throw new IllegalStateException(message);
+			}, () -> "Custom message");
+			expectAssertionFailedError();
+		}
+		catch (AssertionFailedError ex) {
+			assertMessageEquals(ex, "Custom message ==> Unexpected exception thrown: "
+					+ IllegalStateException.class.getName() + ": " + message);
 		}
 	}
 

@@ -1,15 +1,16 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.launcher.core;
 
+import static org.apiguardian.api.API.Status.DEPRECATED;
 import static org.apiguardian.api.API.Status.STABLE;
 
 import java.util.ArrayList;
@@ -19,20 +20,24 @@ import java.util.List;
 import java.util.Map;
 
 import org.apiguardian.api.API;
-import org.junit.platform.commons.util.PreconditionViolationException;
+import org.junit.platform.commons.PreconditionViolationException;
 import org.junit.platform.commons.util.Preconditions;
+import org.junit.platform.engine.ConfigurationParameters;
 import org.junit.platform.engine.DiscoveryFilter;
 import org.junit.platform.engine.DiscoverySelector;
 import org.junit.platform.engine.Filter;
 import org.junit.platform.launcher.EngineFilter;
+import org.junit.platform.launcher.LauncherDiscoveryListener;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
 import org.junit.platform.launcher.PostDiscoveryFilter;
+import org.junit.platform.launcher.core.LauncherConfigurationParameters.Builder;
+import org.junit.platform.launcher.listeners.discovery.LauncherDiscoveryListeners;
 
 /**
  * The {@code LauncherDiscoveryRequestBuilder} provides a light-weight DSL for
  * generating a {@link LauncherDiscoveryRequest}.
  *
- * <h4>Example</h4>
+ * <h2>Example</h2>
  *
  * <pre class="code">
  * import static org.junit.platform.engine.discovery.DiscoverySelectors.*;
@@ -79,11 +84,27 @@ import org.junit.platform.launcher.PostDiscoveryFilter;
 @API(status = STABLE, since = "1.0")
 public final class LauncherDiscoveryRequestBuilder {
 
-	private List<DiscoverySelector> selectors = new ArrayList<>();
-	private List<EngineFilter> engineFilters = new ArrayList<>();
-	private List<DiscoveryFilter<?>> discoveryFilters = new ArrayList<>();
-	private List<PostDiscoveryFilter> postDiscoveryFilters = new ArrayList<>();
-	private Map<String, String> configurationParameters = new HashMap<>();
+	/**
+	 * Property name used to set the default discovery listener that is added to all : {@value}
+	 *
+	 * <h4>Supported Values</h4>
+	 *
+	 * <p>Supported values are {@code "logging"} and {@code "abortOnFailure"}.
+	 *
+	 * <p>If not specified, the default is {@value #DEFAULT_DISCOVERY_LISTENER_CONFIGURATION_PROPERTY_VALUE}.
+	 */
+	public static final String DEFAULT_DISCOVERY_LISTENER_CONFIGURATION_PROPERTY_NAME = "junit.platform.discovery.listener.default";
+
+	private static final String DEFAULT_DISCOVERY_LISTENER_CONFIGURATION_PROPERTY_VALUE = "abortOnFailure";
+
+	private final List<DiscoverySelector> selectors = new ArrayList<>();
+	private final List<EngineFilter> engineFilters = new ArrayList<>();
+	private final List<DiscoveryFilter<?>> discoveryFilters = new ArrayList<>();
+	private final List<PostDiscoveryFilter> postDiscoveryFilters = new ArrayList<>();
+	private final Map<String, String> configurationParameters = new HashMap<>();
+	private final List<LauncherDiscoveryListener> discoveryListeners = new ArrayList<>();
+	private boolean implicitConfigurationParametersEnabled = true;
+	private ConfigurationParameters parentConfigurationParameters;
 
 	/**
 	 * Create a new {@code LauncherDiscoveryRequestBuilder}.
@@ -92,6 +113,14 @@ public final class LauncherDiscoveryRequestBuilder {
 	 */
 	public static LauncherDiscoveryRequestBuilder request() {
 		return new LauncherDiscoveryRequestBuilder();
+	}
+
+	/**
+	 * @deprecated Use {@link #request()}
+	 */
+	@API(status = DEPRECATED, since = "1.8")
+	@Deprecated
+	public LauncherDiscoveryRequestBuilder() {
 	}
 
 	/**
@@ -169,6 +198,73 @@ public final class LauncherDiscoveryRequestBuilder {
 		return this;
 	}
 
+	/**
+	 * Set the parent configuration parameters to use for the request.
+	 *
+	 * <p>Any explicit configuration parameters configured via
+	 * {@link #configurationParameter(String, String)} or
+	 * {@link #configurationParameters(Map)} takes precedence over the supplied
+	 * configuration parameters.
+	 *
+	 * @param configurationParameters the parent instance to be used for looking
+	 * up configuration parameters that have not been explicitly configured;
+	 * never {@code null}
+	 * @since 1.8
+	 * @see #configurationParameter(String, String)
+	 * @see #configurationParameters(Map)
+	 */
+	@API(status = STABLE, since = "1.10")
+	public LauncherDiscoveryRequestBuilder parentConfigurationParameters(
+			ConfigurationParameters configurationParameters) {
+		Preconditions.notNull(configurationParameters, "parent configuration parameters must not be null");
+		this.parentConfigurationParameters = configurationParameters;
+		return this;
+	}
+
+	/**
+	 * Add all of the supplied discovery listeners to the request.
+	 *
+	 * <p>In addition to the {@linkplain LauncherDiscoveryListener listeners}
+	 * registered using this method, this builder will add a default listener
+	 * to this request that can be specified using the
+	 * {@value #DEFAULT_DISCOVERY_LISTENER_CONFIGURATION_PROPERTY_NAME}
+	 * configuration parameter.
+	 *
+	 * @param listeners the {@code LauncherDiscoveryListeners} to add; never
+	 * {@code null}
+	 * @return this builder for method chaining
+	 * @since 1.6
+	 * @see LauncherDiscoveryListener
+	 * @see LauncherDiscoveryListeners
+	 * @see LauncherDiscoveryRequestBuilder#DEFAULT_DISCOVERY_LISTENER_CONFIGURATION_PROPERTY_NAME
+	 */
+	@API(status = STABLE, since = "1.10")
+	public LauncherDiscoveryRequestBuilder listeners(LauncherDiscoveryListener... listeners) {
+		Preconditions.notNull(listeners, "discovery listener array must not be null");
+		Preconditions.containsNoNullElements(listeners, "individual discovery listeners must not be null");
+		this.discoveryListeners.addAll(Arrays.asList(listeners));
+		return this;
+	}
+
+	/**
+	 * Configure whether implicit configuration parameters should be considered.
+	 *
+	 * <p>By default, in addition to those parameters that are passed explicitly
+	 * to this builder, configuration parameters are read from system properties
+	 * and from the {@code junit-platform.properties} classpath resource.
+	 * Passing {@code false} to this method, disables the latter two sources so
+	 * that only explicit configuration parameters are taken into account.
+	 *
+	 * @since 1.7
+	 * @see #configurationParameter(String, String)
+	 * @see #configurationParameters(Map)
+	 */
+	@API(status = STABLE, since = "1.10")
+	public LauncherDiscoveryRequestBuilder enableImplicitConfigurationParameters(boolean enabled) {
+		this.implicitConfigurationParametersEnabled = enabled;
+		return this;
+	}
+
 	private void storeFilter(Filter<?> filter) {
 		if (filter instanceof EngineFilter) {
 			this.engineFilters.add((EngineFilter) filter);
@@ -191,10 +287,45 @@ public final class LauncherDiscoveryRequestBuilder {
 	 * this builder.
 	 */
 	public LauncherDiscoveryRequest build() {
-		LauncherConfigurationParameters launcherConfigurationParameters = new LauncherConfigurationParameters(
-			this.configurationParameters);
+		LauncherConfigurationParameters launcherConfigurationParameters = buildLauncherConfigurationParameters();
+		LauncherDiscoveryListener discoveryListener = getLauncherDiscoveryListener(launcherConfigurationParameters);
 		return new DefaultDiscoveryRequest(this.selectors, this.engineFilters, this.discoveryFilters,
-			this.postDiscoveryFilters, launcherConfigurationParameters);
+			this.postDiscoveryFilters, launcherConfigurationParameters, discoveryListener);
+	}
+
+	private LauncherConfigurationParameters buildLauncherConfigurationParameters() {
+		Builder builder = LauncherConfigurationParameters.builder() //
+				.explicitParameters(this.configurationParameters) //
+				.enableImplicitProviders(this.implicitConfigurationParametersEnabled);
+
+		if (parentConfigurationParameters != null) {
+			builder.parentConfigurationParameters(this.parentConfigurationParameters);
+		}
+
+		return builder.build();
+	}
+
+	private LauncherDiscoveryListener getLauncherDiscoveryListener(ConfigurationParameters configurationParameters) {
+		LauncherDiscoveryListener defaultDiscoveryListener = getDefaultLauncherDiscoveryListener(
+			configurationParameters);
+		if (discoveryListeners.isEmpty()) {
+			return defaultDiscoveryListener;
+		}
+		if (discoveryListeners.contains(defaultDiscoveryListener)) {
+			return LauncherDiscoveryListeners.composite(discoveryListeners);
+		}
+		List<LauncherDiscoveryListener> allDiscoveryListeners = new ArrayList<>(discoveryListeners.size() + 1);
+		allDiscoveryListeners.addAll(discoveryListeners);
+		allDiscoveryListeners.add(defaultDiscoveryListener);
+		return LauncherDiscoveryListeners.composite(allDiscoveryListeners);
+	}
+
+	private LauncherDiscoveryListener getDefaultLauncherDiscoveryListener(
+			ConfigurationParameters configurationParameters) {
+		String value = configurationParameters.get(DEFAULT_DISCOVERY_LISTENER_CONFIGURATION_PROPERTY_NAME) //
+				.orElse(DEFAULT_DISCOVERY_LISTENER_CONFIGURATION_PROPERTY_VALUE);
+		return LauncherDiscoveryListeners.fromConfigurationParameter(
+			DEFAULT_DISCOVERY_LISTENER_CONFIGURATION_PROPERTY_NAME, value);
 	}
 
 }

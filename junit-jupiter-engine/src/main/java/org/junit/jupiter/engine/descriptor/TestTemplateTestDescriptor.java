@@ -1,15 +1,16 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.engine.descriptor;
 
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apiguardian.api.API.Status.INTERNAL;
 import static org.junit.jupiter.engine.descriptor.ExtensionUtils.populateNewExtensionRegistryFromExtendWithAnnotation;
@@ -20,11 +21,16 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apiguardian.api.API;
+import org.junit.jupiter.api.extension.ExecutableInvoker;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.TestInstances;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
+import org.junit.jupiter.engine.config.JupiterConfiguration;
+import org.junit.jupiter.engine.execution.DefaultExecutableInvoker;
 import org.junit.jupiter.engine.execution.JupiterEngineExecutionContext;
 import org.junit.jupiter.engine.extension.ExtensionRegistry;
+import org.junit.jupiter.engine.extension.MutableExtensionRegistry;
 import org.junit.platform.commons.util.Preconditions;
 import org.junit.platform.engine.TestDescriptor;
 import org.junit.platform.engine.UniqueId;
@@ -38,10 +44,12 @@ import org.junit.platform.engine.UniqueId;
 @API(status = INTERNAL, since = "5.0")
 public class TestTemplateTestDescriptor extends MethodBasedTestDescriptor implements Filterable {
 
+	public static final String SEGMENT_TYPE = "test-template";
 	private final DynamicDescendantFilter dynamicDescendantFilter = new DynamicDescendantFilter();
 
-	public TestTemplateTestDescriptor(UniqueId uniqueId, Class<?> testClass, Method templateMethod) {
-		super(uniqueId, testClass, templateMethod);
+	public TestTemplateTestDescriptor(UniqueId uniqueId, Class<?> testClass, Method templateMethod,
+			JupiterConfiguration configuration) {
+		super(uniqueId, testClass, templateMethod, configuration);
 	}
 
 	// --- Filterable ----------------------------------------------------------
@@ -67,14 +75,15 @@ public class TestTemplateTestDescriptor extends MethodBasedTestDescriptor implem
 
 	@Override
 	public JupiterEngineExecutionContext prepare(JupiterEngineExecutionContext context) throws Exception {
-		ExtensionRegistry registry = populateNewExtensionRegistryFromExtendWithAnnotation(
+		MutableExtensionRegistry registry = populateNewExtensionRegistryFromExtendWithAnnotation(
 			context.getExtensionRegistry(), getTestMethod());
 
 		// The test instance should be properly maintained by the enclosing class's ExtensionContext.
-		Object testInstance = context.getExtensionContext().getTestInstance().orElse(null);
+		TestInstances testInstances = context.getExtensionContext().getTestInstances().orElse(null);
 
+		ExecutableInvoker executableInvoker = new DefaultExecutableInvoker(context);
 		ExtensionContext extensionContext = new TestTemplateExtensionContext(context.getExtensionContext(),
-			context.getExecutionListener(), this, context.getConfigurationParameters(), testInstance);
+			context.getExecutionListener(), this, context.getConfiguration(), testInstances, executableInvoker);
 
 		// @formatter:off
 		return context.extend()
@@ -100,7 +109,7 @@ public class TestTemplateTestDescriptor extends MethodBasedTestDescriptor implem
 				.map(Optional::get)
 				.forEach(invocationTestDescriptor -> execute(dynamicTestExecutor, invocationTestDescriptor));
 		// @formatter:on
-		validateWasAtLeastInvokedOnce(invocationIndex.get());
+		validateWasAtLeastInvokedOnce(invocationIndex.get(), providers);
 		return context;
 	}
 
@@ -121,21 +130,26 @@ public class TestTemplateTestDescriptor extends MethodBasedTestDescriptor implem
 	private Optional<TestDescriptor> createInvocationTestDescriptor(TestTemplateInvocationContext invocationContext,
 			int index) {
 		UniqueId uniqueId = getUniqueId().append(TestTemplateInvocationTestDescriptor.SEGMENT_TYPE, "#" + index);
-		if (getDynamicDescendantFilter().test(uniqueId)) {
+		if (getDynamicDescendantFilter().test(uniqueId, index - 1)) {
 			return Optional.of(new TestTemplateInvocationTestDescriptor(uniqueId, getTestClass(), getTestMethod(),
-				invocationContext, index));
+				invocationContext, index, configuration));
 		}
 		return Optional.empty();
 	}
 
 	private void execute(DynamicTestExecutor dynamicTestExecutor, TestDescriptor testDescriptor) {
-		addChild(testDescriptor);
+		testDescriptor.setParent(this);
 		dynamicTestExecutor.execute(testDescriptor);
 	}
 
-	private void validateWasAtLeastInvokedOnce(int invocationIndex) {
-		Preconditions.condition(invocationIndex > 0, () -> "No supporting "
-				+ TestTemplateInvocationContextProvider.class.getSimpleName() + " provided an invocation context");
+	private void validateWasAtLeastInvokedOnce(int invocationIndex,
+			List<TestTemplateInvocationContextProvider> providers) {
+
+		Preconditions.condition(invocationIndex > 0,
+			() -> "None of the supporting " + TestTemplateInvocationContextProvider.class.getSimpleName() + "s "
+					+ providers.stream().map(provider -> provider.getClass().getSimpleName()).collect(
+						joining(", ", "[", "]"))
+					+ " provided a non-empty stream");
 	}
 
 }

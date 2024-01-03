@@ -1,19 +1,17 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.engine.extension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
-import static org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder.request;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,8 +23,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestInstancePostProcessor;
 import org.junit.jupiter.engine.AbstractJupiterTestEngineTests;
-import org.junit.platform.engine.test.event.ExecutionEventRecorder;
-import org.junit.platform.launcher.LauncherDiscoveryRequest;
 
 /**
  * Integration tests that verify support for {@link TestInstancePostProcessor}.
@@ -44,12 +40,7 @@ class TestInstancePostProcessorTests extends AbstractJupiterTestEngineTests {
 
 	@Test
 	void instancePostProcessorsInNestedClasses() {
-		LauncherDiscoveryRequest request = request().selectors(selectClass(OuterTestCase.class)).build();
-
-		ExecutionEventRecorder eventRecorder = executeTests(request);
-
-		assertEquals(2, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(2, eventRecorder.getTestSuccessfulCount(), "# tests succeeded");
+		executeTestsForClass(OuterTestCase.class).testEvents().assertStatistics(stats -> stats.started(2).succeeded(2));
 
 		// @formatter:off
 		assertThat(callSequence).containsExactly(
@@ -73,13 +64,8 @@ class TestInstancePostProcessorTests extends AbstractJupiterTestEngineTests {
 
 	@Test
 	void testSpecificTestInstancePostProcessorIsCalled() {
-		LauncherDiscoveryRequest request = request().selectors(
-			selectClass(TestCaseWithTestSpecificTestInstancePostProcessor.class)).build();
-
-		ExecutionEventRecorder eventRecorder = executeTests(request);
-
-		assertEquals(1, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(1, eventRecorder.getTestSuccessfulCount(), "# tests succeeded");
+		executeTestsForClass(TestCaseWithTestSpecificTestInstancePostProcessor.class).testEvents()//
+				.assertStatistics(stats -> stats.started(1).succeeded(1));
 
 		assertThat(callSequence).containsExactly(
 			"fooPostProcessTestInstance:TestCaseWithTestSpecificTestInstancePostProcessor", "beforeEachMethod", "test");
@@ -159,7 +145,7 @@ class TestInstancePostProcessorTests extends AbstractJupiterTestEngineTests {
 	static class FooInstancePostProcessor implements TestInstancePostProcessor {
 
 		@Override
-		public void postProcessTestInstance(Object testInstance, ExtensionContext context) throws Exception {
+		public void postProcessTestInstance(Object testInstance, ExtensionContext context) {
 			if (testInstance instanceof Named) {
 				((Named) testInstance).setName("foo:" + context.getRequiredTestClass().getSimpleName());
 			}
@@ -170,7 +156,7 @@ class TestInstancePostProcessorTests extends AbstractJupiterTestEngineTests {
 	static class BarInstancePostProcessor implements TestInstancePostProcessor {
 
 		@Override
-		public void postProcessTestInstance(Object testInstance, ExtensionContext context) throws Exception {
+		public void postProcessTestInstance(Object testInstance, ExtensionContext context) {
 			if (testInstance instanceof Named) {
 				((Named) testInstance).setName("bar:" + context.getRequiredTestClass().getSimpleName());
 			}

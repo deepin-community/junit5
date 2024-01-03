@@ -1,34 +1,30 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.engine.extension;
 
-import static org.assertj.core.api.Assertions.allOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.platform.commons.util.ClassUtils.nullSafeToString;
-import static org.junit.platform.engine.test.event.ExecutionEventConditions.assertRecordedExecutionEventsContainsExactly;
-import static org.junit.platform.engine.test.event.ExecutionEventConditions.container;
-import static org.junit.platform.engine.test.event.ExecutionEventConditions.engine;
-import static org.junit.platform.engine.test.event.ExecutionEventConditions.event;
-import static org.junit.platform.engine.test.event.ExecutionEventConditions.finishedSuccessfully;
-import static org.junit.platform.engine.test.event.ExecutionEventConditions.finishedWithFailure;
-import static org.junit.platform.engine.test.event.ExecutionEventConditions.nestedContainer;
-import static org.junit.platform.engine.test.event.ExecutionEventConditions.started;
-import static org.junit.platform.engine.test.event.ExecutionEventConditions.test;
-import static org.junit.platform.engine.test.event.TestExecutionResultConditions.isA;
-import static org.junit.platform.engine.test.event.TestExecutionResultConditions.message;
+import static org.junit.platform.testkit.engine.EventConditions.container;
+import static org.junit.platform.testkit.engine.EventConditions.engine;
+import static org.junit.platform.testkit.engine.EventConditions.event;
+import static org.junit.platform.testkit.engine.EventConditions.finishedSuccessfully;
+import static org.junit.platform.testkit.engine.EventConditions.finishedWithFailure;
+import static org.junit.platform.testkit.engine.EventConditions.nestedContainer;
+import static org.junit.platform.testkit.engine.EventConditions.started;
+import static org.junit.platform.testkit.engine.EventConditions.test;
+import static org.junit.platform.testkit.engine.TestExecutionResultConditions.instanceOf;
+import static org.junit.platform.testkit.engine.TestExecutionResultConditions.message;
 
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -47,8 +43,9 @@ import org.junit.jupiter.api.extension.TestInstanceFactory;
 import org.junit.jupiter.api.extension.TestInstanceFactoryContext;
 import org.junit.jupiter.api.extension.TestInstantiationException;
 import org.junit.jupiter.engine.AbstractJupiterTestEngineTests;
+import org.junit.platform.commons.test.TestClassLoader;
 import org.junit.platform.commons.util.ReflectionUtils;
-import org.junit.platform.engine.test.event.ExecutionEventRecorder;
+import org.junit.platform.testkit.engine.EngineExecutionResults;
 
 /**
  * Integration tests that verify support for {@link TestInstanceFactory}.
@@ -67,38 +64,38 @@ class TestInstanceFactoryTests extends AbstractJupiterTestEngineTests {
 	@Test
 	void multipleFactoriesRegisteredOnSingleTestClass() {
 		Class<?> testClass = MultipleFactoriesRegisteredOnSingleTestCase.class;
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(testClass);
+		EngineExecutionResults executionResults = executeTestsForClass(testClass);
 
-		assertEquals(0, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(0, eventRecorder.getTestFailedCount(), "# tests aborted");
+		assertEquals(0, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(0, executionResults.testEvents().failed().count(), "# tests aborted");
 
-		assertRecordedExecutionEventsContainsExactly(eventRecorder.getExecutionEvents(), //
+		executionResults.allEvents().assertEventsMatchExactly( //
 			event(engine(), started()), //
 			event(container(testClass), started()), //
 			event(container(testClass),
-				finishedWithFailure(allOf(isA(ExtensionConfigurationException.class),
+				finishedWithFailure(instanceOf(ExtensionConfigurationException.class),
 					message("The following TestInstanceFactory extensions were registered for test class ["
 							+ testClass.getName() + "], but only one is permitted: "
-							+ nullSafeToString(FooInstanceFactory.class, BarInstanceFactory.class))))), //
+							+ nullSafeToString(FooInstanceFactory.class, BarInstanceFactory.class)))), //
 			event(engine(), finishedSuccessfully()));
 	}
 
 	@Test
 	void multipleFactoriesRegisteredWithinTestClassHierarchy() {
 		Class<?> testClass = MultipleFactoriesRegisteredWithinClassHierarchyTestCase.class;
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(testClass);
+		EngineExecutionResults executionResults = executeTestsForClass(testClass);
 
-		assertEquals(0, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(0, eventRecorder.getTestFailedCount(), "# tests aborted");
+		assertEquals(0, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(0, executionResults.testEvents().failed().count(), "# tests aborted");
 
-		assertRecordedExecutionEventsContainsExactly(eventRecorder.getExecutionEvents(), //
+		executionResults.allEvents().assertEventsMatchExactly( //
 			event(engine(), started()), //
 			event(container(testClass), started()), //
 			event(container(testClass),
-				finishedWithFailure(allOf(isA(ExtensionConfigurationException.class),
+				finishedWithFailure(instanceOf(ExtensionConfigurationException.class),
 					message("The following TestInstanceFactory extensions were registered for test class ["
 							+ testClass.getName() + "], but only one is permitted: "
-							+ nullSafeToString(FooInstanceFactory.class, BarInstanceFactory.class))))), //
+							+ nullSafeToString(FooInstanceFactory.class, BarInstanceFactory.class)))), //
 			event(engine(), finishedSuccessfully()));
 	}
 
@@ -106,22 +103,22 @@ class TestInstanceFactoryTests extends AbstractJupiterTestEngineTests {
 	void multipleFactoriesRegisteredWithinNestedClassStructure() {
 		Class<?> outerClass = MultipleFactoriesRegisteredWithinNestedClassStructureTestCase.class;
 		Class<?> nestedClass = MultipleFactoriesRegisteredWithinNestedClassStructureTestCase.InnerTestCase.class;
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(outerClass);
+		EngineExecutionResults executionResults = executeTestsForClass(outerClass);
 
-		assertEquals(1, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(1, eventRecorder.getTestSuccessfulCount(), "# tests succeeded");
+		assertEquals(1, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(1, executionResults.testEvents().succeeded().count(), "# tests succeeded");
 
-		assertRecordedExecutionEventsContainsExactly(eventRecorder.getExecutionEvents(), //
+		executionResults.allEvents().assertEventsMatchExactly( //
 			event(engine(), started()), //
 			event(container(outerClass), started()), //
 			event(test("outerTest()"), started()), //
 			event(test("outerTest()"), finishedSuccessfully()), //
 			event(nestedContainer(nestedClass), started()), //
 			event(nestedContainer(nestedClass),
-				finishedWithFailure(allOf(isA(ExtensionConfigurationException.class),
+				finishedWithFailure(instanceOf(ExtensionConfigurationException.class),
 					message("The following TestInstanceFactory extensions were registered for test class ["
 							+ nestedClass.getName() + "], but only one is permitted: "
-							+ nullSafeToString(FooInstanceFactory.class, BarInstanceFactory.class))))), //
+							+ nullSafeToString(FooInstanceFactory.class, BarInstanceFactory.class)))), //
 			event(container(outerClass), finishedSuccessfully()), //
 			event(engine(), finishedSuccessfully()));
 	}
@@ -129,20 +126,20 @@ class TestInstanceFactoryTests extends AbstractJupiterTestEngineTests {
 	@Test
 	void nullTestInstanceFactoryWithPerMethodLifecycle() {
 		Class<?> testClass = NullTestInstanceFactoryTestCase.class;
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(testClass);
+		EngineExecutionResults executionResults = executeTestsForClass(testClass);
 
-		assertEquals(1, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(1, eventRecorder.getTestFailedCount(), "# tests aborted");
+		assertEquals(1, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(1, executionResults.testEvents().failed().count(), "# tests aborted");
 
-		assertRecordedExecutionEventsContainsExactly(eventRecorder.getExecutionEvents(), //
+		executionResults.allEvents().assertEventsMatchExactly( //
 			event(engine(), started()), //
 			event(container(testClass), started()), //
 			event(test("testShouldNotBeCalled"), started()), //
 			event(test("testShouldNotBeCalled"),
-				finishedWithFailure(allOf(isA(TestInstantiationException.class),
+				finishedWithFailure(instanceOf(TestInstantiationException.class),
 					message(m -> m.equals("TestInstanceFactory [" + NullTestInstanceFactory.class.getName()
 							+ "] failed to return an instance of [" + testClass.getName()
-							+ "] and instead returned an instance of [null]."))))), //
+							+ "] and instead returned an instance of [null].")))), //
 			event(container(testClass), finishedSuccessfully()), //
 			event(engine(), finishedSuccessfully()));
 	}
@@ -150,39 +147,39 @@ class TestInstanceFactoryTests extends AbstractJupiterTestEngineTests {
 	@Test
 	void nullTestInstanceFactoryWithPerClassLifecycle() {
 		Class<?> testClass = PerClassLifecycleNullTestInstanceFactoryTestCase.class;
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(testClass);
+		EngineExecutionResults executionResults = executeTestsForClass(testClass);
 
-		assertEquals(0, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(0, eventRecorder.getTestFailedCount(), "# tests aborted");
+		assertEquals(0, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(0, executionResults.testEvents().failed().count(), "# tests aborted");
 
-		assertRecordedExecutionEventsContainsExactly(eventRecorder.getExecutionEvents(), //
+		executionResults.allEvents().assertEventsMatchExactly( //
 			event(engine(), started()), //
 			event(container(testClass), started()), //
 			event(container(testClass),
-				finishedWithFailure(allOf(isA(TestInstantiationException.class),
+				finishedWithFailure(instanceOf(TestInstantiationException.class),
 					message(m -> m.equals("TestInstanceFactory [" + NullTestInstanceFactory.class.getName()
 							+ "] failed to return an instance of [" + testClass.getName()
-							+ "] and instead returned an instance of [null]."))))), //
+							+ "] and instead returned an instance of [null].")))), //
 			event(engine(), finishedSuccessfully()));
 	}
 
 	@Test
 	void bogusTestInstanceFactoryWithPerMethodLifecycle() {
 		Class<?> testClass = BogusTestInstanceFactoryTestCase.class;
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(testClass);
+		EngineExecutionResults executionResults = executeTestsForClass(testClass);
 
-		assertEquals(1, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(1, eventRecorder.getTestFailedCount(), "# tests aborted");
+		assertEquals(1, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(1, executionResults.testEvents().failed().count(), "# tests aborted");
 
-		assertRecordedExecutionEventsContainsExactly(eventRecorder.getExecutionEvents(), //
+		executionResults.allEvents().assertEventsMatchExactly( //
 			event(engine(), started()), //
 			event(container(testClass), started()), //
 			event(test("testShouldNotBeCalled"), started()), //
 			event(test("testShouldNotBeCalled"),
-				finishedWithFailure(allOf(isA(TestInstantiationException.class),
+				finishedWithFailure(instanceOf(TestInstantiationException.class),
 					message(m -> m.equals("TestInstanceFactory [" + BogusTestInstanceFactory.class.getName()
 							+ "] failed to return an instance of [" + testClass.getName()
-							+ "] and instead returned an instance of [java.lang.String]."))))), //
+							+ "] and instead returned an instance of [java.lang.String].")))), //
 			event(container(testClass), finishedSuccessfully()), //
 			event(engine(), finishedSuccessfully()));
 	}
@@ -190,38 +187,38 @@ class TestInstanceFactoryTests extends AbstractJupiterTestEngineTests {
 	@Test
 	void bogusTestInstanceFactoryWithPerClassLifecycle() {
 		Class<?> testClass = PerClassLifecycleBogusTestInstanceFactoryTestCase.class;
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(testClass);
+		EngineExecutionResults executionResults = executeTestsForClass(testClass);
 
-		assertEquals(0, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(0, eventRecorder.getTestFailedCount(), "# tests aborted");
+		assertEquals(0, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(0, executionResults.testEvents().failed().count(), "# tests aborted");
 
-		assertRecordedExecutionEventsContainsExactly(eventRecorder.getExecutionEvents(), //
+		executionResults.allEvents().assertEventsMatchExactly( //
 			event(engine(), started()), //
 			event(container(testClass), started()), //
 			event(container(testClass),
-				finishedWithFailure(allOf(isA(TestInstantiationException.class),
+				finishedWithFailure(instanceOf(TestInstantiationException.class),
 					message(m -> m.equals("TestInstanceFactory [" + BogusTestInstanceFactory.class.getName()
 							+ "] failed to return an instance of [" + testClass.getName()
-							+ "] and instead returned an instance of [java.lang.String]."))))), //
+							+ "] and instead returned an instance of [java.lang.String].")))), //
 			event(engine(), finishedSuccessfully()));
 	}
 
 	@Test
 	void explosiveTestInstanceFactoryWithPerMethodLifecycle() {
 		Class<?> testClass = ExplosiveTestInstanceFactoryTestCase.class;
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(testClass);
+		EngineExecutionResults executionResults = executeTestsForClass(testClass);
 
-		assertEquals(1, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(1, eventRecorder.getTestFailedCount(), "# tests aborted");
+		assertEquals(1, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(1, executionResults.testEvents().failed().count(), "# tests aborted");
 
-		assertRecordedExecutionEventsContainsExactly(eventRecorder.getExecutionEvents(), //
+		executionResults.allEvents().assertEventsMatchExactly( //
 			event(engine(), started()), //
 			event(container(testClass), started()), //
 			event(test("testShouldNotBeCalled"), started()), //
 			event(test("testShouldNotBeCalled"),
-				finishedWithFailure(allOf(isA(TestInstantiationException.class),
+				finishedWithFailure(instanceOf(TestInstantiationException.class),
 					message("TestInstanceFactory [" + ExplosiveTestInstanceFactory.class.getName()
-							+ "] failed to instantiate test class [" + testClass.getName() + "]: boom!")))), //
+							+ "] failed to instantiate test class [" + testClass.getName() + "]: boom!"))), //
 			event(container(testClass), finishedSuccessfully()), //
 			event(engine(), finishedSuccessfully()));
 	}
@@ -229,30 +226,30 @@ class TestInstanceFactoryTests extends AbstractJupiterTestEngineTests {
 	@Test
 	void explosiveTestInstanceFactoryWithPerClassLifecycle() {
 		Class<?> testClass = PerClassLifecycleExplosiveTestInstanceFactoryTestCase.class;
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(testClass);
+		EngineExecutionResults executionResults = executeTestsForClass(testClass);
 
-		assertEquals(0, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(0, eventRecorder.getTestFailedCount(), "# tests aborted");
+		assertEquals(0, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(0, executionResults.testEvents().failed().count(), "# tests aborted");
 
-		assertRecordedExecutionEventsContainsExactly(eventRecorder.getExecutionEvents(), //
+		executionResults.allEvents().assertEventsMatchExactly( //
 			event(engine(), started()), //
 			event(container(testClass), started()), //
 			event(container(testClass), //
-				finishedWithFailure(allOf(isA(TestInstantiationException.class),
+				finishedWithFailure(instanceOf(TestInstantiationException.class),
 					message("TestInstanceFactory [" + ExplosiveTestInstanceFactory.class.getName()
-							+ "] failed to instantiate test class [" + testClass.getName() + "]: boom!")))), //
+							+ "] failed to instantiate test class [" + testClass.getName() + "]: boom!"))), //
 			event(engine(), finishedSuccessfully()));
 	}
 
 	@Test
 	void proxyTestInstanceFactoryFailsDueToUseOfDifferentClassLoader() {
 		Class<?> testClass = ProxiedTestCase.class;
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(testClass);
+		EngineExecutionResults executionResults = executeTestsForClass(testClass);
 
-		assertEquals(0, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(0, eventRecorder.getTestFailedCount(), "# tests aborted");
+		assertEquals(0, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(0, executionResults.testEvents().failed().count(), "# tests aborted");
 
-		assertRecordedExecutionEventsContainsExactly(eventRecorder.getExecutionEvents(), //
+		executionResults.allEvents().assertEventsMatchExactly( //
 			event(engine(), started()), //
 			event(container(testClass), started()), //
 			event(container(testClass), //
@@ -260,21 +257,21 @@ class TestInstanceFactoryTests extends AbstractJupiterTestEngineTests {
 				// instantiated using different ClassLoaders. Thus, we check for the
 				// appended "@" but ignore the actual hash code for the test class
 				// loaded by the different ClassLoader.
-				finishedWithFailure(allOf(isA(TestInstantiationException.class),
+				finishedWithFailure(instanceOf(TestInstantiationException.class),
 					message(m -> m.startsWith("TestInstanceFactory [" + ProxyTestInstanceFactory.class.getName() + "]")
 							&& m.contains("failed to return an instance of [" + testClass.getName() + "@"
 									+ Integer.toHexString(System.identityHashCode(testClass)))
 							&& m.contains("and instead returned an instance of [" + testClass.getName() + "@")//
-					)))), //
+					))), //
 			event(engine(), finishedSuccessfully()));
 	}
 
 	@Test
 	void instanceFactoryOnTopLevelTestClass() {
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(ParentTestCase.class);
+		EngineExecutionResults executionResults = executeTestsForClass(ParentTestCase.class);
 
-		assertEquals(1, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(1, eventRecorder.getTestSuccessfulCount(), "# tests succeeded");
+		assertEquals(1, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(1, executionResults.testEvents().succeeded().count(), "# tests succeeded");
 
 		// @formatter:off
 		assertThat(callSequence).containsExactly(
@@ -285,11 +282,24 @@ class TestInstanceFactoryTests extends AbstractJupiterTestEngineTests {
 	}
 
 	@Test
-	void inheritedFactoryInTestClassHierarchy() {
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(InheritedFactoryTestCase.class);
+	void instanceFactorySupportedWhenTestClassDeclaresMultipleConstructors() {
+		executeTestsForClass(MultipleConstructorsTestCase.class).testEvents()//
+				.assertStatistics(stats -> stats.started(1).succeeded(1));
 
-		assertEquals(2, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(2, eventRecorder.getTestSuccessfulCount(), "# tests succeeded");
+		// @formatter:off
+		assertThat(callSequence).containsExactly(
+			"MultipleConstructorsTestInstanceFactory instantiated: MultipleConstructorsTestCase",
+				"test: 42"
+		);
+		// @formatter:on
+	}
+
+	@Test
+	void inheritedFactoryInTestClassHierarchy() {
+		EngineExecutionResults executionResults = executeTestsForClass(InheritedFactoryTestCase.class);
+
+		assertEquals(2, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(2, executionResults.testEvents().succeeded().count(), "# tests succeeded");
 
 		// @formatter:off
 		assertThat(callSequence).containsExactly(
@@ -303,10 +313,10 @@ class TestInstanceFactoryTests extends AbstractJupiterTestEngineTests {
 
 	@Test
 	void instanceFactoriesInNestedClassStructureAreInherited() {
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(OuterTestCase.class);
+		EngineExecutionResults executionResults = executeTestsForClass(OuterTestCase.class);
 
-		assertEquals(3, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(3, eventRecorder.getTestSuccessfulCount(), "# tests succeeded");
+		assertEquals(3, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(3, executionResults.testEvents().succeeded().count(), "# tests succeeded");
 
 		// @formatter:off
 		assertThat(callSequence).containsExactly(
@@ -331,10 +341,10 @@ class TestInstanceFactoryTests extends AbstractJupiterTestEngineTests {
 
 	@Test
 	void instanceFactoryRegisteredViaTestInterface() {
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(FactoryFromInterfaceTestCase.class);
+		EngineExecutionResults executionResults = executeTestsForClass(FactoryFromInterfaceTestCase.class);
 
-		assertEquals(1, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(1, eventRecorder.getTestSuccessfulCount(), "# tests succeeded");
+		assertEquals(1, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(1, executionResults.testEvents().succeeded().count(), "# tests succeeded");
 
 		// @formatter:off
 		assertThat(callSequence).containsExactly(
@@ -346,10 +356,10 @@ class TestInstanceFactoryTests extends AbstractJupiterTestEngineTests {
 
 	@Test
 	void instanceFactoryRegisteredAsLambdaExpression() {
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(LambdaFactoryTestCase.class);
+		EngineExecutionResults executionResults = executeTestsForClass(LambdaFactoryTestCase.class);
 
-		assertEquals(1, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(1, eventRecorder.getTestSuccessfulCount(), "# tests succeeded");
+		assertEquals(1, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(1, executionResults.testEvents().succeeded().count(), "# tests succeeded");
 
 		// @formatter:off
 		assertThat(callSequence).containsExactly(
@@ -361,12 +371,12 @@ class TestInstanceFactoryTests extends AbstractJupiterTestEngineTests {
 
 	@Test
 	void instanceFactoryWithPerClassLifecycle() {
-		ExecutionEventRecorder eventRecorder = executeTestsForClass(PerClassLifecycleTestCase.class);
+		EngineExecutionResults executionResults = executeTestsForClass(PerClassLifecycleTestCase.class);
 
 		assertEquals(1, PerClassLifecycleTestCase.counter.get());
 
-		assertEquals(2, eventRecorder.getTestStartedCount(), "# tests started");
-		assertEquals(2, eventRecorder.getTestSuccessfulCount(), "# tests succeeded");
+		assertEquals(2, executionResults.testEvents().started().count(), "# tests started");
+		assertEquals(2, executionResults.testEvents().succeeded().count(), "# tests succeeded");
 
 		// @formatter:off
 		assertThat(callSequence).containsExactly(
@@ -429,6 +439,34 @@ class TestInstanceFactoryTests extends AbstractJupiterTestEngineTests {
 
 	@TestInstance(PER_CLASS)
 	static class PerClassLifecycleExplosiveTestInstanceFactoryTestCase extends ExplosiveTestInstanceFactoryTestCase {
+	}
+
+	private static class MultipleConstructorsTestInstanceFactory implements TestInstanceFactory {
+
+		@Override
+		public Object createTestInstance(TestInstanceFactoryContext factoryContext, ExtensionContext extensionContext) {
+			instantiated(getClass(), factoryContext.getTestClass());
+			return new MultipleConstructorsTestCase(42);
+		}
+	}
+
+	@ExtendWith(MultipleConstructorsTestInstanceFactory.class)
+	static class MultipleConstructorsTestCase {
+
+		private final int number;
+
+		public MultipleConstructorsTestCase(String text) {
+			this.number = -1;
+		}
+
+		public MultipleConstructorsTestCase(int number) {
+			this.number = number;
+		}
+
+		@Test
+		void test() {
+			callSequence.add("test: " + this.number);
+		}
 	}
 
 	@ExtendWith(FooInstanceFactory.class)
@@ -644,7 +682,7 @@ class TestInstanceFactoryTests extends AbstractJupiterTestEngineTests {
 	}
 
 	/**
-	 * This does not actually create a proxy. Rather, it simply simulates what
+	 * This does not actually create a proxy. Rather, it simulates what
 	 * a proxy-based implementation might do, by loading the class from a
 	 * different {@link ClassLoader}.
 	 */
@@ -654,30 +692,17 @@ class TestInstanceFactoryTests extends AbstractJupiterTestEngineTests {
 		public Object createTestInstance(TestInstanceFactoryContext factoryContext, ExtensionContext extensionContext) {
 			Class<?> testClass = factoryContext.getTestClass();
 			String className = testClass.getName();
+
 			instantiated(getClass(), testClass);
 
-			try (ProxyClassLoader proxyClassLoader = new ProxyClassLoader()) {
+			try (var testClassLoader = TestClassLoader.forClasses(testClass)) {
 				// Load test class from different class loader
-				Class<?> clazz = proxyClassLoader.loadClass(className);
+				Class<?> clazz = testClassLoader.loadClass(className);
 				return ReflectionUtils.newInstance(clazz);
 			}
 			catch (Exception ex) {
 				throw new RuntimeException("Failed to load class [" + className + "]", ex);
 			}
-		}
-	}
-
-	private static class ProxyClassLoader extends URLClassLoader {
-
-		ProxyClassLoader() {
-			super(new URL[] { ProxyClassLoader.class.getProtectionDomain().getCodeSource().getLocation() },
-				getSystemClassLoader());
-		}
-
-		@Override
-		public Class<?> loadClass(String name) throws ClassNotFoundException {
-			return (name.startsWith(TestInstanceFactoryTests.class.getName()) ? findClass(name)
-					: super.loadClass(name));
 		}
 	}
 

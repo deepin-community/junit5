@@ -1,1 +1,5 @@
+org.jetbrains.kotlin kotlin-maven-plugin
 org.jetbrains.kotlin kotlin-stdlib
+org.junit.platform junit-platform-jfr
+org.junit.platform junit-platform-testkit
+org.mockito mockito-junit-jupiter

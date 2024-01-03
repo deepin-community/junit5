@@ -1,24 +1,27 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package platform.tooling.support.tests;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.nio.file.Paths;
-import java.time.Duration;
-
-import de.sormuras.bartholdy.tool.Maven;
+import static platform.tooling.support.Helper.TOOL_TIMEOUT;
+import static platform.tooling.support.tests.XmlAssertions.verifyContainsExpectedStartedOpenTestReport;
 
 import org.junit.jupiter.api.Test;
+import org.opentest4j.TestAbortedException;
+
+import platform.tooling.support.Helper;
+import platform.tooling.support.MavenRepo;
 import platform.tooling.support.Request;
 
 /**
@@ -27,18 +30,27 @@ import platform.tooling.support.Request;
 class MavenStarterTests {
 
 	@Test
-	void maven_3_5_4() {
-		var result = Request.builder() //
-				.setTool(Maven.install("3.5.4", Paths.get("build", "test-tools"))) //
+	void verifyMavenStarterProject() {
+		var request = Request.builder() //
+				.setTool(Request.maven()) //
 				.setProject("maven-starter") //
-				.addArguments("--debug", "verify") //
-				.setTimeout(Duration.ofSeconds(99)) //
-				.build() //
-				.run();
+				.addArguments("-Dmaven.repo=" + MavenRepo.dir()) //
+				.addArguments("--update-snapshots", "--batch-mode", "verify") //
+				.setTimeout(TOOL_TIMEOUT) //
+				.setJavaHome(Helper.getJavaHome("8").orElseThrow(TestAbortedException::new)) //
+				.build();
 
-		assertEquals(0, result.getExitCode(), result.toString());
+		var result = request.run();
+
+		assertFalse(result.isTimedOut(), () -> "tool timed out: " + result);
+
+		assertEquals(0, result.getExitCode());
 		assertEquals("", result.getOutput("err"));
 		assertTrue(result.getOutputLines("out").contains("[INFO] BUILD SUCCESS"));
 		assertTrue(result.getOutputLines("out").contains("[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0"));
+		assertThat(result.getOutput("out")).contains("Using Java version: 1.8");
+
+		var testResultsDir = Request.WORKSPACE.resolve(request.getWorkspace()).resolve("target/surefire-reports");
+		verifyContainsExpectedStartedOpenTestReport(testResultsDir);
 	}
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.console;
@@ -13,20 +13,12 @@ package org.junit.platform.console;
 import static org.apiguardian.api.API.Status.INTERNAL;
 import static org.apiguardian.api.API.Status.MAINTAINED;
 
-import java.io.BufferedWriter;
-import java.io.OutputStreamWriter;
-import java.io.PrintStream;
 import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.nio.charset.Charset;
 
 import org.apiguardian.api.API;
-import org.junit.platform.commons.JUnitException;
-import org.junit.platform.console.options.CommandLineOptions;
-import org.junit.platform.console.options.CommandLineOptionsParser;
-import org.junit.platform.console.options.PicocliCommandLineOptionsParser;
+import org.junit.platform.console.options.CommandFacade;
+import org.junit.platform.console.options.CommandResult;
 import org.junit.platform.console.tasks.ConsoleTestExecutor;
-import org.junit.platform.launcher.listeners.TestExecutionSummary;
 
 /**
  * The {@code ConsoleLauncher} is a stand-alone application for launching the
@@ -38,71 +30,36 @@ import org.junit.platform.launcher.listeners.TestExecutionSummary;
 public class ConsoleLauncher {
 
 	public static void main(String... args) {
-		int exitCode = execute(System.out, System.err, args).getExitCode();
-		System.exit(exitCode);
+		PrintWriter out = new PrintWriter(System.out);
+		PrintWriter err = new PrintWriter(System.err);
+		CommandResult<?> result = run(out, err, args);
+		System.exit(result.getExitCode());
 	}
 
 	@API(status = INTERNAL, since = "1.0")
-	public static ConsoleLauncherExecutionResult execute(PrintStream out, PrintStream err, String... args) {
-		CommandLineOptionsParser parser = new PicocliCommandLineOptionsParser();
-		ConsoleLauncher consoleLauncher = new ConsoleLauncher(parser, out, err);
-		return consoleLauncher.execute(args);
+	public static CommandResult<?> run(PrintWriter out, PrintWriter err, String... args) {
+		ConsoleLauncher consoleLauncher = new ConsoleLauncher(ConsoleTestExecutor::new, out, err);
+		return consoleLauncher.run(args);
 	}
 
-	private final CommandLineOptionsParser commandLineOptionsParser;
-	private final PrintStream outStream;
-	private final PrintStream errStream;
-	private final Charset charset;
+	private final ConsoleTestExecutor.Factory consoleTestExecutorFactory;
+	private final PrintWriter out;
+	private final PrintWriter err;
 
-	ConsoleLauncher(CommandLineOptionsParser commandLineOptionsParser, PrintStream out, PrintStream err) {
-		this(commandLineOptionsParser, out, err, Charset.defaultCharset());
+	ConsoleLauncher(ConsoleTestExecutor.Factory consoleTestExecutorFactory, PrintWriter out, PrintWriter err) {
+		this.consoleTestExecutorFactory = consoleTestExecutorFactory;
+		this.out = out;
+		this.err = err;
 	}
 
-	ConsoleLauncher(CommandLineOptionsParser commandLineOptionsParser, PrintStream out, PrintStream err,
-			Charset charset) {
-		this.commandLineOptionsParser = commandLineOptionsParser;
-		this.outStream = out;
-		this.errStream = err;
-		this.charset = charset;
-	}
-
-	ConsoleLauncherExecutionResult execute(String... args) {
-
-		CommandLineOptions options = null;
+	CommandResult<?> run(String... args) {
 		try {
-			options = commandLineOptionsParser.parse(args);
-		}
-		catch (JUnitException ex) {
-			errStream.println(ex.getMessage());
-			StringWriter sw = new StringWriter();
-			commandLineOptionsParser.printHelp(new PrintWriter(sw));
-			errStream.println(sw);
-			return ConsoleLauncherExecutionResult.failed();
-		}
-		try (PrintWriter out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(outStream, charset)))) {
-			if (options.isDisplayHelp()) {
-				commandLineOptionsParser.printHelp(out);
-				return ConsoleLauncherExecutionResult.success();
-			}
-			return executeTests(options, out);
+			return new CommandFacade(consoleTestExecutorFactory).run(out, err, args);
 		}
 		finally {
-			outStream.flush();
-			errStream.flush();
+			out.flush();
+			err.flush();
 		}
-	}
-
-	private ConsoleLauncherExecutionResult executeTests(CommandLineOptions options, PrintWriter out) {
-		try {
-			TestExecutionSummary testExecutionSummary = new ConsoleTestExecutor(options).execute(out);
-			return ConsoleLauncherExecutionResult.forSummary(testExecutionSummary, options);
-		}
-		catch (Exception exception) {
-			exception.printStackTrace(errStream);
-			errStream.println();
-			commandLineOptionsParser.printHelp(out);
-		}
-		return ConsoleLauncherExecutionResult.failed();
 	}
 
 }

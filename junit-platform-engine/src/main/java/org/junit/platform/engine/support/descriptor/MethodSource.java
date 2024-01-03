@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.engine.support.descriptor;
@@ -17,7 +17,10 @@ import java.lang.reflect.Method;
 import java.util.Objects;
 
 import org.apiguardian.api.API;
+import org.junit.platform.commons.PreconditionViolationException;
 import org.junit.platform.commons.util.Preconditions;
+import org.junit.platform.commons.util.ReflectionUtils;
+import org.junit.platform.commons.util.StringUtils;
 import org.junit.platform.commons.util.ToStringBuilder;
 import org.junit.platform.engine.TestSource;
 
@@ -52,10 +55,26 @@ public class MethodSource implements TestSource {
 	 *
 	 * @param className the class name; must not be {@code null} or blank
 	 * @param methodName the method name; must not be {@code null} or blank
-	 * @param methodParameterTypes the method parameter types as a string
+	 * @param methodParameterTypes a comma-separated list of fully qualified
+	 * class names representing the method parameter types
 	 */
 	public static MethodSource from(String className, String methodName, String methodParameterTypes) {
 		return new MethodSource(className, methodName, methodParameterTypes);
+	}
+
+	/**
+	 * Create a new {@code MethodSource} using the supplied class name, method
+	 * name, and method parameter types.
+	 *
+	 * @param className the class name; must not be {@code null} or blank
+	 * @param methodName the method name; must not be {@code null} or blank
+	 * @param methodParameterTypes a varargs array of classes representing the
+	 * method parameter types
+	 * @since 1.5
+	 */
+	@API(status = STABLE, since = "1.5")
+	public static MethodSource from(String className, String methodName, Class<?>... methodParameterTypes) {
+		return new MethodSource(className, methodName, nullSafeToString(methodParameterTypes));
 	}
 
 	/**
@@ -88,6 +107,8 @@ public class MethodSource implements TestSource {
 	private final String className;
 	private final String methodName;
 	private final String methodParameterTypes;
+	private Class<?> javaClass;
+	private transient Method javaMethod;
 
 	private MethodSource(String className, String methodName) {
 		this(className, methodName, null);
@@ -114,6 +135,8 @@ public class MethodSource implements TestSource {
 		this.className = testClass.getName();
 		this.methodName = testMethod.getName();
 		this.methodParameterTypes = nullSafeToString(testMethod.getParameterTypes());
+		this.javaClass = testClass;
+		this.javaMethod = testMethod;
 	}
 
 	/**
@@ -135,6 +158,67 @@ public class MethodSource implements TestSource {
 	 */
 	public final String getMethodParameterTypes() {
 		return this.methodParameterTypes;
+	}
+
+	/**
+	 * Get the {@linkplain Class Java class} of this source.
+	 *
+	 * <p>If the {@link Class} was not provided, but only the name, this method
+	 * attempts to lazily load the {@link Class} based on its name and throws a
+	 * {@link PreconditionViolationException} if the class cannot be loaded.
+	 *
+	 * @since 1.7
+	 * @see #getClassName()
+	 */
+	@API(status = STABLE, since = "1.7")
+	public final Class<?> getJavaClass() {
+		lazyLoadJavaClass();
+		return this.javaClass;
+	}
+
+	/**
+	 * Get the {@linkplain Method Java method} of this source.
+	 *
+	 * <p>If the {@link Method} was not provided, but only the name, this method
+	 * attempts to lazily load the {@code Method} based on its name and throws a
+	 * {@link PreconditionViolationException} if the method cannot be loaded.
+	 *
+	 * @since 1.7
+	 * @see #getMethodName()
+	 */
+	@API(status = STABLE, since = "1.7")
+	public final Method getJavaMethod() {
+		lazyLoadJavaMethod();
+		return this.javaMethod;
+	}
+
+	private void lazyLoadJavaClass() {
+		if (this.javaClass == null) {
+			// @formatter:off
+			this.javaClass = ReflectionUtils.tryToLoadClass(this.className).getOrThrow(
+				cause -> new PreconditionViolationException("Could not load class with name: " + this.className, cause));
+			// @formatter:on
+		}
+	}
+
+	private void lazyLoadJavaMethod() {
+		lazyLoadJavaClass();
+
+		if (this.javaMethod == null) {
+			if (StringUtils.isNotBlank(this.methodParameterTypes)) {
+				this.javaMethod = ReflectionUtils.findMethod(this.javaClass, this.methodName,
+					this.methodParameterTypes).orElseThrow(
+						() -> new PreconditionViolationException(String.format(
+							"Could not find method with name [%s] and parameter types [%s] in class [%s].",
+							this.methodName, this.methodParameterTypes, this.javaClass.getName())));
+			}
+			else {
+				this.javaMethod = ReflectionUtils.findMethod(this.javaClass, this.methodName).orElseThrow(
+					() -> new PreconditionViolationException(
+						String.format("Could not find method with name [%s] in class [%s].", this.methodName,
+							this.javaClass.getName())));
+			}
+		}
 	}
 
 	@Override

@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.console.tasks;
@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.platform.console.options.Theme;
 import org.junit.platform.engine.UniqueId;
 import org.junit.platform.engine.reporting.ReportEntry;
-import org.junit.platform.engine.test.TestDescriptorStub;
+import org.junit.platform.fakes.TestDescriptorStub;
 import org.junit.platform.launcher.TestIdentifier;
 
 /**
@@ -33,9 +33,9 @@ class VerboseTreeListenerTests {
 
 	@Test
 	void executionSkipped() {
-		StringWriter stringWriter = new StringWriter();
+		var stringWriter = new StringWriter();
 		listener(stringWriter).executionSkipped(newTestIdentifier(), "Test" + EOL + "disabled");
-		String[] lines = lines(stringWriter);
+		var lines = lines(stringWriter);
 
 		assertLinesMatch(List.of( //
 			"+-- %c ool test", //
@@ -49,18 +49,18 @@ class VerboseTreeListenerTests {
 
 	@Test
 	void reportingEntryPublished() {
-		StringWriter stringWriter = new StringWriter();
+		var stringWriter = new StringWriter();
 		listener(stringWriter).reportingEntryPublished(newTestIdentifier(), ReportEntry.from("foo", "bar"));
-		String[] lines = lines(stringWriter);
+		var lines = lines(stringWriter);
 
 		assertLinesMatch(List.of("  reports: ReportEntry \\[timestamp = .+, foo = 'bar'\\]"), List.of(lines));
 	}
 
 	@Test
 	void executionFinishedWithFailure() {
-		StringWriter stringWriter = new StringWriter();
+		var stringWriter = new StringWriter();
 		listener(stringWriter).executionFinished(newTestIdentifier(), failed(new AssertionError("Boom!")));
-		String[] lines = lines(stringWriter);
+		var lines = lines(stringWriter);
 
 		assertLinesMatch(List.of("   caught: java.lang.AssertionError: Boom!", //
 			">> STACKTRACE >>", //
@@ -70,9 +70,9 @@ class VerboseTreeListenerTests {
 
 	@Test
 	void failureMessageWithFormatSpecifier() {
-		StringWriter stringWriter = new StringWriter();
+		var stringWriter = new StringWriter();
 		listener(stringWriter).executionFinished(newTestIdentifier(), failed(new AssertionError("%crash")));
-		String[] lines = lines(stringWriter);
+		var lines = lines(stringWriter);
 
 		assertLinesMatch(List.of("   caught: java.lang.AssertionError: %crash", //
 			">> STACKTRACE >>", //
@@ -81,11 +81,11 @@ class VerboseTreeListenerTests {
 	}
 
 	private VerboseTreePrintingListener listener(StringWriter stringWriter) {
-		return new VerboseTreePrintingListener(new PrintWriter(stringWriter), true, 16, Theme.ASCII);
+		return new VerboseTreePrintingListener(new PrintWriter(stringWriter), ColorPalette.NONE, 16, Theme.ASCII);
 	}
 
 	private static TestIdentifier newTestIdentifier() {
-		TestDescriptorStub testDescriptor = new TestDescriptorStub(UniqueId.forEngine("demo-engine"), "%c ool test");
+		var testDescriptor = new TestDescriptorStub(UniqueId.forEngine("demo-engine"), "%c ool test");
 		return TestIdentifier.from(testDescriptor);
 	}
 

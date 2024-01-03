@@ -1,25 +1,28 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.engine.support.hierarchical;
 
 import static java.util.Collections.emptySet;
-import static org.apiguardian.api.API.Status.EXPERIMENTAL;
 import static org.apiguardian.api.API.Status.MAINTAINED;
+import static org.apiguardian.api.API.Status.STABLE;
 
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Future;
 
 import org.apiguardian.api.API;
 import org.junit.platform.commons.util.ToStringBuilder;
+import org.junit.platform.engine.EngineExecutionListener;
 import org.junit.platform.engine.TestDescriptor;
+import org.junit.platform.engine.TestExecutionResult;
 
 /**
  * A <em>node</em> within the execution hierarchy.
@@ -121,6 +124,48 @@ public interface Node<C extends EngineExecutionContext> {
 	}
 
 	/**
+	 * Wraps around the invocation of {@link #before(EngineExecutionContext)},
+	 * {@link #execute(EngineExecutionContext, DynamicTestExecutor)}, and
+	 * {@link #after(EngineExecutionContext)}.
+	 *
+	 * @param context context the context to execute in
+	 * @param invocation the wrapped invocation (must be invoked exactly once)
+	 * @since 1.4
+	 */
+	@API(status = STABLE, since = "1.10")
+	default void around(C context, Invocation<C> invocation) throws Exception {
+		invocation.invoke(context);
+	}
+
+	/**
+	 * Callback invoked when the execution of this node has been skipped.
+	 *
+	 * <p>The default implementation does nothing.
+	 *
+	 * @param context the execution context
+	 * @param testDescriptor the test descriptor that was skipped
+	 * @param result the result of skipped execution
+	 * @since 1.4
+	 */
+	@API(status = STABLE, since = "1.10", consumers = "org.junit.platform.engine.support.hierarchical")
+	default void nodeSkipped(C context, TestDescriptor testDescriptor, SkipResult result) {
+	}
+
+	/**
+	 * Callback invoked when the execution of this node has finished.
+	 *
+	 * <p>The default implementation does nothing.
+	 *
+	 * @param context the execution context
+	 * @param testDescriptor the test descriptor that was executed
+	 * @param result the result of the execution
+	 * @since 1.4
+	 */
+	@API(status = STABLE, since = "1.10", consumers = "org.junit.platform.engine.support.hierarchical")
+	default void nodeFinished(C context, TestDescriptor testDescriptor, TestExecutionResult result) {
+	}
+
+	/**
 	 * Get the set of {@linkplain ExclusiveResource exclusive resources}
 	 * required to execute this node.
 	 *
@@ -131,7 +176,7 @@ public interface Node<C extends EngineExecutionContext> {
 	 * @since 1.3
 	 * @see ExclusiveResource
 	 */
-	@API(status = EXPERIMENTAL, since = "1.3", consumers = "org.junit.platform.engine.support.hierarchical")
+	@API(status = STABLE, since = "1.10", consumers = "org.junit.platform.engine.support.hierarchical")
 	default Set<ExclusiveResource> getExclusiveResources() {
 		return emptySet();
 	}
@@ -146,7 +191,7 @@ public interface Node<C extends EngineExecutionContext> {
 	 * @since 1.3
 	 * @see ExecutionMode
 	 */
-	@API(status = EXPERIMENTAL, since = "1.3", consumers = "org.junit.platform.engine.support.hierarchical")
+	@API(status = STABLE, since = "1.10", consumers = "org.junit.platform.engine.support.hierarchical")
 	default ExecutionMode getExecutionMode() {
 		return ExecutionMode.CONCURRENT;
 	}
@@ -239,9 +284,25 @@ public interface Node<C extends EngineExecutionContext> {
 		/**
 		 * Submit a dynamic test descriptor for immediate execution.
 		 *
-		 * @param testDescriptor the test descriptor to be executed
+		 * @param testDescriptor the test descriptor to be executed; never
+		 * {@code null}
 		 */
 		void execute(TestDescriptor testDescriptor);
+
+		/**
+		 * Submit a dynamic test descriptor for immediate execution with a
+		 * custom, potentially no-op, execution listener.
+		 *
+		 * @param testDescriptor the test descriptor to be executed; never
+		 * {@code null}
+		 * @param executionListener the executionListener to be notified; never
+		 * {@code null}
+		 * @return a future to cancel or wait for the execution
+		 * @since 1.7
+		 * @see EngineExecutionListener#NOOP
+		 */
+		@API(status = STABLE, since = "1.10")
+		Future<?> execute(TestDescriptor testDescriptor, EngineExecutionListener executionListener);
 
 		/**
 		 * Block until all dynamic test descriptors submitted to this executor
@@ -264,7 +325,7 @@ public interface Node<C extends EngineExecutionContext> {
 	 * @see #CONCURRENT
 	 * @see Node#getExecutionMode()
 	 */
-	@API(status = EXPERIMENTAL, since = "1.3", consumers = "org.junit.platform.engine.support.hierarchical")
+	@API(status = STABLE, since = "1.10", consumers = "org.junit.platform.engine.support.hierarchical")
 	enum ExecutionMode {
 
 		/**
@@ -282,4 +343,20 @@ public interface Node<C extends EngineExecutionContext> {
 		CONCURRENT
 	}
 
+	/**
+	 * Represents an invocation that runs with the supplied context.
+	 *
+	 * @param <C> the type of {@code EngineExecutionContext} used by the {@code HierarchicalTestEngine}
+	 * @since 1.4
+	 */
+	@API(status = STABLE, since = "1.10")
+	interface Invocation<C extends EngineExecutionContext> {
+
+		/**
+		 * Invoke this invocation with the supplied context.
+		 *
+		 * @param context the context to invoke in
+		 */
+		void invoke(C context) throws Exception;
+	}
 }

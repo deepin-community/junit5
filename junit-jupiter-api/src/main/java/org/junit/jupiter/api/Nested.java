@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.api;
@@ -28,7 +28,10 @@ import org.junit.jupiter.api.TestInstance.Lifecycle;
  * enclosing class}. The enclosing class may be a top-level test class or
  * another {@code @Nested} test class, and nesting can be arbitrarily deep.
  *
- * <h3>Test Instance Lifecycle</h3>
+ * <p>{@code @Nested} test classes may be ordered via
+ * {@link TestClassOrder @TestClassOrder} or a global {@link ClassOrderer}.
+ *
+ * <h2>Test Instance Lifecycle</h2>
  *
  * <ul>
  * <li>A {@code @Nested} test class <em>can</em> be configured with its own
@@ -41,6 +44,7 @@ import org.junit.jupiter.api.TestInstance.Lifecycle;
  * @since 5.0
  * @see Test
  * @see TestInstance
+ * @see TestClassOrder
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
