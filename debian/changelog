@@ -1,3 +1,59 @@
+junit5 (5.10.1-1) unstable; urgency=medium
+
+  * New upstream release
+    - Refreshed the patches
+  * Fixed the build failure with Java 21 (Closes: #1053040)
+
+ -- Emmanuel Bourg <ebourg@apache.org>  Thu, 23 Nov 2023 11:30:08 +0100
+
+junit5 (5.9.3-1) experimental; urgency=medium
+
+  * Team upload.
+  * New upstream version 5.9.3
+  * Freshen debian/copyright to match upstream Copyright attestation
+  * Add lintian overrides for long lines in JavaScript
+  * Set Rules-Requires-Root: no in debian/control
+
+ -- tony mancill <tmancill@debian.org>  Fri, 19 May 2023 22:26:51 -0700
+
+junit5 (5.9.2-1) unstable; urgency=medium
+
+  [ Vladimir Petko ]
+  * Fixed the junit-jupiter-api classpath (Closes: #1028991)
+
+  [ Emmanuel Bourg ]
+  * New upstream release
+  * Standards-Version updated to 4.6.2
+
+ -- Emmanuel Bourg <ebourg@apache.org>  Mon, 16 Jan 2023 07:34:23 +0100
+
+junit5 (5.9.1-1) unstable; urgency=medium
+
+  * New upstream release
+    - Refreshed the patches
+    - New dependency on libopentest4j-reporting-java
+    - Restored the compatibility with the previous version
+  * Replace the upstream build system with Maven
+  * Standards-Version updated to 4.6.1
+  * Switch to debhelper level 13
+
+ -- Emmanuel Bourg <ebourg@apache.org>  Mon, 10 Oct 2022 09:13:36 +0200
+
+junit5 (5.3.2-5) unstable; urgency=medium
+
+  * Team upload.
+  * Setting the manifests of the jars in debian/junit5.manifest
+    (Closes: #988532, #1003439)
+  * Depending on javahelper, using it to list the dependencies of binary package
+  * Raising Standards version to 4.6.0, no change
+  * Adding header to patch 15
+  * Use correct machine-readable copyright file URI.
+  * Set upstream metadata fields: Bug-Database, Bug-Submit, Repository,
+    Repository-Browse.
+  * "Upstream-Source" field is now "Source" in d/copyright
+
+ -- Pierre Gruet <pgt@debian.org>  Sun, 06 Feb 2022 15:36:28 +0100
+
 junit5 (5.3.2-4) unstable; urgency=medium
 
   * Team upload.

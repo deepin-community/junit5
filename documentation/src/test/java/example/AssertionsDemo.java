@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package example;
@@ -22,28 +22,35 @@ import static org.junit.jupiter.api.Assertions.assertTimeout;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.CountDownLatch;
+
+import example.domain.Person;
+import example.util.Calculator;
+
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 class AssertionsDemo {
 
-	// end::user_guide[]
-	Person person = new Person("John", "Doe");
+	private final Calculator calculator = new Calculator();
 
-	// tag::user_guide[]
+	private final Person person = new Person("Jane", "Doe");
+
 	@Test
 	void standardAssertions() {
-		assertEquals(2, 2);
-		assertEquals(4, 4, "The optional assertion message is now the last parameter.");
+		assertEquals(2, calculator.add(1, 1));
+		assertEquals(4, calculator.multiply(2, 2),
+				"The optional failure message is now the last parameter");
 		assertTrue('a' < 'b', () -> "Assertion messages can be lazily evaluated -- "
 				+ "to avoid constructing complex messages unnecessarily.");
 	}
 
 	@Test
 	void groupedAssertions() {
-		// In a grouped assertion all assertions are executed, and any
+		// In a grouped assertion all assertions are executed, and all
 		// failures will be reported together.
 		assertAll("person",
-			() -> assertEquals("John", person.getFirstName()),
+			() -> assertEquals("Jane", person.getFirstName()),
 			() -> assertEquals("Doe", person.getLastName())
 		);
 	}
@@ -60,7 +67,7 @@ class AssertionsDemo {
 				// Executed only if the previous assertion is valid.
 				assertAll("first name",
 					() -> assertTrue(firstName.startsWith("J")),
-					() -> assertTrue(firstName.endsWith("n"))
+					() -> assertTrue(firstName.endsWith("e"))
 				);
 			},
 			() -> {
@@ -80,12 +87,14 @@ class AssertionsDemo {
 
 	@Test
 	void exceptionTesting() {
-		Throwable exception = assertThrows(IllegalArgumentException.class, () -> {
-			throw new IllegalArgumentException("a message");
-		});
-		assertEquals("a message", exception.getMessage());
+		Exception exception = assertThrows(ArithmeticException.class, () ->
+			calculator.divide(1, 0));
+		assertEquals("/ by zero", exception.getMessage());
 	}
 
+	// end::user_guide[]
+	@Tag("timeout")
+	// tag::user_guide[]
 	@Test
 	void timeoutNotExceeded() {
 		// The following assertion succeeds.
@@ -94,6 +103,9 @@ class AssertionsDemo {
 		});
 	}
 
+	// end::user_guide[]
+	@Tag("timeout")
+	// tag::user_guide[]
 	@Test
 	void timeoutNotExceededWithResult() {
 		// The following assertion succeeds, and returns the supplied object.
@@ -103,6 +115,9 @@ class AssertionsDemo {
 		assertEquals("a result", actualResult);
 	}
 
+	// end::user_guide[]
+	@Tag("timeout")
+	// tag::user_guide[]
 	@Test
 	void timeoutNotExceededWithMethod() {
 		// The following assertion invokes a method reference and returns an object.
@@ -111,6 +126,7 @@ class AssertionsDemo {
 	}
 
 	// end::user_guide[]
+	@Tag("timeout")
 	@extensions.ExpectToFail
 	// tag::user_guide[]
 	@Test
@@ -124,6 +140,7 @@ class AssertionsDemo {
 	}
 
 	// end::user_guide[]
+	@Tag("timeout")
 	@extensions.ExpectToFail
 	// tag::user_guide[]
 	@Test
@@ -132,7 +149,7 @@ class AssertionsDemo {
 		// execution timed out after 10 ms
 		assertTimeoutPreemptively(ofMillis(10), () -> {
 			// Simulate task that takes more than 10 ms.
-			Thread.sleep(100);
+			new CountDownLatch(1).await();
 		});
 	}
 

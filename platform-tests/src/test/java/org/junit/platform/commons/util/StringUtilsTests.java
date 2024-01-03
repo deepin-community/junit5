@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.commons.util;
@@ -14,6 +14,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.platform.commons.util.StringUtils.containsIsoControlCharacter;
 import static org.junit.platform.commons.util.StringUtils.containsWhitespace;
@@ -22,8 +24,11 @@ import static org.junit.platform.commons.util.StringUtils.doesNotContainWhitespa
 import static org.junit.platform.commons.util.StringUtils.isBlank;
 import static org.junit.platform.commons.util.StringUtils.isNotBlank;
 import static org.junit.platform.commons.util.StringUtils.nullSafeToString;
+import static org.junit.platform.commons.util.StringUtils.replaceIsoControlCharacters;
+import static org.junit.platform.commons.util.StringUtils.replaceWhitespaceCharacters;
 
 import org.junit.jupiter.api.Test;
+import org.junit.platform.commons.PreconditionViolationException;
 
 /**
  * Unit tests for {@link StringUtils}.
@@ -91,6 +96,35 @@ class StringUtilsTests {
 	}
 
 	@Test
+	void replaceControlCharacters() {
+		assertNull(replaceIsoControlCharacters(null, ""));
+		assertEquals("", replaceIsoControlCharacters("", "."));
+		assertEquals("", replaceIsoControlCharacters("\t\n\r", ""));
+		assertEquals("...", replaceIsoControlCharacters("\t\n\r", "."));
+		assertEquals("...", replaceIsoControlCharacters("\u005Ct\u005Cn\u005Cr", "."));
+		assertEquals("abc", replaceIsoControlCharacters("abc", "?"));
+		assertEquals("...", replaceIsoControlCharacters("...", "?"));
+
+		assertThrows(PreconditionViolationException.class, () -> replaceIsoControlCharacters("", null));
+	}
+
+	@Test
+	void replaceWhitespaces() {
+		assertNull(replaceWhitespaceCharacters(null, ""));
+		assertEquals("", replaceWhitespaceCharacters("", "."));
+		assertEquals("", replaceWhitespaceCharacters("\t\n\r", ""));
+		assertEquals("...", replaceWhitespaceCharacters("\t\n\r", "."));
+		assertEquals("...", replaceWhitespaceCharacters("\u005Ct\u005Cn\u005Cr", "."));
+		assertEquals("abc", replaceWhitespaceCharacters("abc", "?"));
+		assertEquals("...", replaceWhitespaceCharacters("...", "?"));
+		assertEquals(" ", replaceWhitespaceCharacters(" ", " "));
+		assertEquals(" ", replaceWhitespaceCharacters("\u000B", " "));
+		assertEquals(" ", replaceWhitespaceCharacters("\f", " "));
+
+		assertThrows(PreconditionViolationException.class, () -> replaceWhitespaceCharacters("", null));
+	}
+
+	@Test
 	void nullSafeToStringChecks() {
 		assertEquals("null", nullSafeToString(null));
 		assertEquals("", nullSafeToString(""));
@@ -102,6 +136,11 @@ class StringUtilsTests {
 		assertEquals("[foo, bar]", nullSafeToString(new String[] { "foo", "bar" }));
 		assertEquals("[34, 42]", nullSafeToString(new Integer[] { 34, 42 }));
 		assertEquals("[[2, 4], [3, 9]]", nullSafeToString(new Integer[][] { { 2, 4 }, { 3, 9 } }));
+	}
+
+	@Test
+	void nullSafeToStringForObjectWhoseToStringImplementationReturnsNull() {
+		assertEquals("null", nullSafeToString(new ToStringReturnsNull()));
 	}
 
 	@Test
@@ -132,6 +171,14 @@ class StringUtilsTests {
 			() -> String.format("'%s' should not contain ISO control character", str));
 		assertFalse(containsIsoControlCharacter(str),
 			() -> String.format("'%s' should not contain ISO control character", str));
+	}
+
+	private static class ToStringReturnsNull {
+
+		@Override
+		public String toString() {
+			return null;
+		}
 	}
 
 	private static class ToStringThrowsException {

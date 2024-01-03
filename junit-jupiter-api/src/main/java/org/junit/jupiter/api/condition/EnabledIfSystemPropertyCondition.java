@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.jupiter.api.condition;
@@ -13,13 +13,9 @@ package org.junit.jupiter.api.condition;
 import static java.lang.String.format;
 import static org.junit.jupiter.api.extension.ConditionEvaluationResult.disabled;
 import static org.junit.jupiter.api.extension.ConditionEvaluationResult.enabled;
-import static org.junit.platform.commons.util.AnnotationUtils.findAnnotation;
-
-import java.util.Optional;
 
 import org.junit.jupiter.api.extension.ConditionEvaluationResult;
 import org.junit.jupiter.api.extension.ExecutionCondition;
-import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.platform.commons.util.Preconditions;
 
 /**
@@ -28,21 +24,23 @@ import org.junit.platform.commons.util.Preconditions;
  * @since 5.1
  * @see EnabledIfSystemProperty
  */
-class EnabledIfSystemPropertyCondition implements ExecutionCondition {
+class EnabledIfSystemPropertyCondition extends AbstractRepeatableAnnotationCondition<EnabledIfSystemProperty> {
 
-	private static final ConditionEvaluationResult ENABLED_BY_DEFAULT = enabled(
-		"@EnabledIfSystemProperty is not present");
+	private static final ConditionEvaluationResult ENABLED = ConditionEvaluationResult.enabled(
+		"No @EnabledIfSystemProperty conditions resulting in 'disabled' execution encountered");
+
+	EnabledIfSystemPropertyCondition() {
+		super(EnabledIfSystemProperty.class);
+	}
 
 	@Override
-	public ConditionEvaluationResult evaluateExecutionCondition(ExtensionContext context) {
-		Optional<EnabledIfSystemProperty> optional = findAnnotation(context.getElement(),
-			EnabledIfSystemProperty.class);
+	protected ConditionEvaluationResult getNoDisabledConditionsEncounteredResult() {
+		return ENABLED;
+	}
 
-		if (!optional.isPresent()) {
-			return ENABLED_BY_DEFAULT;
-		}
+	@Override
+	protected ConditionEvaluationResult evaluate(EnabledIfSystemProperty annotation) {
 
-		EnabledIfSystemProperty annotation = optional.get();
 		String name = annotation.named().trim();
 		String regex = annotation.matches();
 		Preconditions.notBlank(name, () -> "The 'named' attribute must not be blank in " + annotation);
@@ -51,14 +49,15 @@ class EnabledIfSystemPropertyCondition implements ExecutionCondition {
 
 		// Nothing to match against?
 		if (actual == null) {
-			return disabled(format("System property [%s] does not exist", name));
+			return disabled(format("System property [%s] does not exist", name), annotation.disabledReason());
 		}
 		if (actual.matches(regex)) {
 			return enabled(
 				format("System property [%s] with value [%s] matches regular expression [%s]", name, actual, regex));
 		}
 		return disabled(
-			format("System property [%s] with value [%s] does not match regular expression [%s]", name, actual, regex));
+			format("System property [%s] with value [%s] does not match regular expression [%s]", name, actual, regex),
+			annotation.disabledReason());
 	}
 
 }

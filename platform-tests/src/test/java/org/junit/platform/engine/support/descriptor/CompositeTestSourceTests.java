@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.engine.support.descriptor;
@@ -15,14 +15,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
-import org.junit.platform.commons.util.PreconditionViolationException;
-import org.junit.platform.engine.TestSource;
+import org.junit.platform.commons.PreconditionViolationException;
 
 /**
  * Unit tests for {@link CompositeTestSource}.
@@ -33,9 +30,9 @@ class CompositeTestSourceTests extends AbstractTestSourceTests {
 
 	@Override
 	Stream<CompositeTestSource> createSerializableInstances() {
-		FileSource fileSource = FileSource.from(new File("sample.instance"));
-		ClassSource classSource = ClassSource.from(getClass());
-		List<TestSource> sources = new ArrayList<>(Arrays.asList(fileSource, classSource));
+		var fileSource = FileSource.from(new File("sample.instance"));
+		var classSource = ClassSource.from(getClass());
+		var sources = List.of(fileSource, classSource);
 		return Stream.of(CompositeTestSource.from(sources));
 	}
 
@@ -46,22 +43,22 @@ class CompositeTestSourceTests extends AbstractTestSourceTests {
 
 	@Test
 	void createCompositeTestSourceFromEmptyList() {
-		assertThrows(PreconditionViolationException.class, () -> CompositeTestSource.from(Collections.emptyList()));
+		assertThrows(PreconditionViolationException.class, () -> CompositeTestSource.from(List.of()));
 	}
 
 	@Test
 	void createCompositeTestSourceFromClassAndFileSources() {
-		FileSource fileSource = FileSource.from(new File("example.test"));
-		ClassSource classSource = ClassSource.from(getClass());
-		List<TestSource> sources = new ArrayList<>(Arrays.asList(fileSource, classSource));
-		CompositeTestSource compositeTestSource = CompositeTestSource.from(sources);
+		var fileSource = FileSource.from(new File("example.test"));
+		var classSource = ClassSource.from(getClass());
+		var sources = new ArrayList<>(List.of(fileSource, classSource));
+		var compositeTestSource = CompositeTestSource.from(sources);
 
-		assertThat(compositeTestSource.getSources().size()).isEqualTo(2);
+		assertThat(compositeTestSource.getSources()).hasSize(2);
 		assertThat(compositeTestSource.getSources()).contains(fileSource, classSource);
 
 		// Ensure the supplied sources list was defensively copied.
 		sources.remove(1);
-		assertThat(compositeTestSource.getSources().size()).isEqualTo(2);
+		assertThat(compositeTestSource.getSources()).hasSize(2);
 
 		// Ensure the returned sources list is immutable.
 		assertThrows(UnsupportedOperationException.class, () -> compositeTestSource.getSources().add(fileSource));
@@ -69,8 +66,8 @@ class CompositeTestSourceTests extends AbstractTestSourceTests {
 
 	@Test
 	void equalsAndHashCode() {
-		List<TestSource> sources1 = Collections.singletonList(ClassSource.from(Number.class));
-		List<TestSource> sources2 = Collections.singletonList(ClassSource.from(String.class));
+		var sources1 = List.of(ClassSource.from(Number.class));
+		var sources2 = List.of(ClassSource.from(String.class));
 		assertEqualsAndHashCode(CompositeTestSource.from(sources1), CompositeTestSource.from(sources1),
 			CompositeTestSource.from(sources2));
 	}

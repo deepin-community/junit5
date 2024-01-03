@@ -1,11 +1,11 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.suite.api;
@@ -26,15 +26,15 @@ import org.apiguardian.api.API;
  * {@linkplain #value tags or tag expressions} to be excluded when running a
  * test suite on the JUnit Platform.
  *
- * <h3>Tag Expressions</h3>
+ * <h2>Tag Expressions</h2>
  *
  * <p>Tag expressions are boolean expressions with the following allowed
  * operators: {@code !} (not), {@code &} (and) and {@code |} (or). Parentheses
  * can be used to adjust for operator precedence. Please refer to the
- * <a href="http://junit.org/junit5/docs/current/user-guide/#running-tests-tag-expressions">JUnit 5 User Guide</a>
+ * <a href="https://junit.org/junit5/docs/current/user-guide/#running-tests-tag-expressions">JUnit 5 User Guide</a>
  * for usage examples.
  *
- * <h3>Syntax Rules for Tags</h3>
+ * <h2>Syntax Rules for Tags</h2>
  * <ul>
  * <li>A tag must not be blank.</li>
  * <li>A trimmed tag must not contain whitespace.</li>
@@ -53,24 +53,10 @@ import org.apiguardian.api.API;
  * <li>{@code "!"}</li>
  * </ul>
  *
- * <h4>JUnit 4 Suite Support</h4>
- * <p>Test suites can be run on the JUnit Platform in a JUnit 4 environment via
- * {@code @RunWith(JUnitPlatform.class)}.
- *
  * @since 1.0
- * @see SuiteDisplayName
- * @see UseTechnicalNames
- * @see SelectPackages
- * @see SelectClasses
- * @see IncludeClassNamePatterns
- * @see ExcludeClassNamePatterns
- * @see IncludePackages
- * @see ExcludePackages
- * @see IncludeTags
- * @see IncludeEngines
- * @see ExcludeEngines
- * @see org.junit.platform.launcher.TagFilter#excludeTags
+ * @see Suite
  * @see org.junit.platform.runner.JUnitPlatform
+ * @see org.junit.platform.launcher.TagFilter#excludeTags
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
@@ -84,7 +70,7 @@ public @interface ExcludeTags {
 	 *
 	 * <p>Note: each tag will be {@linkplain String#trim() trimmed} and
 	 * validated according to the <em>Syntax Rules for Tags</em> (see
-	 * {@linkplain ExcludeTags class-level JavaDoc} for details).
+	 * {@linkplain ExcludeTags class-level Javadoc} for details).
 	 */
 	String[] value();
 

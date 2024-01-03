@@ -1,72 +1,90 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.console;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.stream.Stream;
 
-import org.junit.jupiter.api.Test;
-import org.junit.platform.console.options.CommandLineOptions;
-import org.junit.platform.console.options.CommandLineOptionsParser;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.platform.console.tasks.ConsoleTestExecutor;
 
 /**
  * @since 1.0
  */
 class ConsoleLauncherTests {
 
-	private final PrintStream printSink = new PrintStream(new ByteArrayOutputStream());
+	private final StringWriter stringWriter = new StringWriter();
+	private final PrintWriter printSink = new PrintWriter(stringWriter);
 
-	@Test
-	void displayHelp() {
-		CommandLineOptions options = new CommandLineOptions();
-		options.setDisplayHelp(true);
-
-		CommandLineOptionsParser commandLineOptionsParser = mock(CommandLineOptionsParser.class);
-		when(commandLineOptionsParser.parse(any())).thenReturn(options);
-
-		ConsoleLauncher consoleLauncher = new ConsoleLauncher(commandLineOptionsParser, printSink, printSink);
-		int exitCode = consoleLauncher.execute("--help").getExitCode();
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("commandsWithEmptyOptionExitCodes")
+	void displayHelp(String command) {
+		var consoleLauncher = new ConsoleLauncher(ConsoleTestExecutor::new, printSink, printSink);
+		var exitCode = consoleLauncher.run(command, "--help").getExitCode();
 
 		assertEquals(0, exitCode);
-		verify(commandLineOptionsParser).parse("--help");
+		assertThat(stringWriter.toString()).contains("--help", "--disable-banner" /* ... */);
 	}
 
-	@Test
-	void executeWithUnknownCommandLineOption() {
-		CommandLineOptionsParser commandLineOptionsParser = mock(CommandLineOptionsParser.class);
-		when(commandLineOptionsParser.parse(any())).thenReturn(new CommandLineOptions());
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("commandsWithEmptyOptionExitCodes")
+	void displayBanner(String command) {
+		var consoleLauncher = new ConsoleLauncher(ConsoleTestExecutor::new, printSink, printSink);
+		consoleLauncher.run(command);
 
-		ConsoleLauncher consoleLauncher = new ConsoleLauncher(commandLineOptionsParser, printSink, printSink);
-		int exitCode = consoleLauncher.execute("--all").getExitCode();
-
-		assertEquals(-1, exitCode);
-		verify(commandLineOptionsParser).parse("--all");
+		assertThat(stringWriter.toString()).contains("Thanks for using JUnit!");
 	}
 
-	@Test
-	void executeWithSupportedCommandLineOption() {
-		CommandLineOptionsParser commandLineOptionsParser = mock(CommandLineOptionsParser.class);
-		when(commandLineOptionsParser.parse(any())).thenReturn(new CommandLineOptions());
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("commandsWithEmptyOptionExitCodes")
+	void disableBanner(String command, int expectedExitCode) {
+		var consoleLauncher = new ConsoleLauncher(ConsoleTestExecutor::new, printSink, printSink);
+		var exitCode = consoleLauncher.run(command, "--disable-banner").getExitCode();
 
-		ConsoleLauncher consoleLauncher = new ConsoleLauncher(commandLineOptionsParser, printSink, printSink);
-		int exitCode = consoleLauncher.execute("--scan-classpath").getExitCode();
+		assertEquals(expectedExitCode, exitCode);
+		assertThat(stringWriter.toString()).doesNotContain("Thanks for using JUnit!");
+	}
+
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("commandsWithEmptyOptionExitCodes")
+	void executeWithUnknownCommandLineOption(String command) {
+		var consoleLauncher = new ConsoleLauncher(ConsoleTestExecutor::new, printSink, printSink);
+		var exitCode = consoleLauncher.run(command, "--all").getExitCode();
 
 		assertEquals(-1, exitCode);
-		verify(commandLineOptionsParser).parse("--scan-classpath");
+		assertThat(stringWriter.toString()).contains("Unknown option: '--all'").contains("Usage:");
+	}
+
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("commandsWithEmptyOptionExitCodes")
+	void executeWithoutCommandLineOptions(String command, int expectedExitCode) {
+		var consoleLauncher = new ConsoleLauncher(ConsoleTestExecutor::new, printSink, printSink);
+		var actualExitCode = consoleLauncher.run(command).getExitCode();
+
+		assertEquals(expectedExitCode, actualExitCode);
+	}
+
+	static Stream<Arguments> commandsWithEmptyOptionExitCodes() {
+		return Stream.of( //
+			arguments("execute", -1), //
+			arguments("discover", -1), //
+			arguments("engines", 0) //
+		);
 	}
 
 }

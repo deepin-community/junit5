@@ -1,27 +1,29 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2023 the original author or authors.
  *
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution and is available at
  *
- * http://www.eclipse.org/legal/epl-v20.html
+ * https://www.eclipse.org/legal/epl-v20.html
  */
 
 package org.junit.platform.launcher;
 
 import static org.apiguardian.api.API.Status.EXPERIMENTAL;
+import static org.apiguardian.api.API.Status.STABLE;
 
 import org.apiguardian.api.API;
+import org.junit.platform.commons.util.ClassNamePatternFilterUtils;
 import org.junit.platform.engine.reporting.ReportEntry;
 
 /**
  * Collection of constants related to {@link Launcher}.
  *
- * @see org.junit.platform.engine.ConfigurationParameters
  * @since 1.3
+ * @see org.junit.platform.engine.ConfigurationParameters
  */
-@API(status = EXPERIMENTAL, since = "1.3")
+@API(status = STABLE, since = "1.7")
 public class LauncherConstants {
 
 	/**
@@ -63,7 +65,7 @@ public class LauncherConstants {
 	 * to use per thread and output type if output capturing is enabled:
 	 * {@value}
 	 *
-	 * <p>Value must be an integer; defaults to {@value CAPTURE_MAX_BUFFER_DEFAULT}.
+	 * <p>Value must be an integer; defaults to {@value #CAPTURE_MAX_BUFFER_DEFAULT}.
 	 *
 	 * @see #CAPTURE_MAX_BUFFER_DEFAULT
 	 */
@@ -88,6 +90,89 @@ public class LauncherConstants {
 	 * {@link ReportEntry}: {@value}
 	 */
 	public static final String STDERR_REPORT_ENTRY_KEY = "stderr";
+
+	/**
+	 * Property name used to provide patterns for deactivating listeners registered
+	 * via the {@link java.util.ServiceLoader ServiceLoader} mechanism: {@value}
+	 *
+	 * <h4>Pattern Matching Syntax</h4>
+	 *
+	 * <p>If the property value consists solely of an asterisk ({@code *}), all
+	 * listeners will be deactivated. Otherwise, the property value will be treated
+	 * as a comma-separated list of patterns where each individual pattern will be
+	 * matched against the fully qualified class name (<em>FQCN</em>) of each registered
+	 * listener. Any dot ({@code .}) in a pattern will match against a dot ({@code .})
+	 * or a dollar sign ({@code $}) in a FQCN. Any asterisk ({@code *}) will match
+	 * against one or more characters in a FQCN. All other characters in a pattern
+	 * will be matched one-to-one against a FQCN.
+	 *
+	 * <h4>Examples</h4>
+	 *
+	 * <ul>
+	 * <li>{@code *}: deactivates all listeners.
+	 * <li>{@code org.junit.*}: deactivates every listener under the {@code org.junit}
+	 * base package and any of its subpackages.
+	 * <li>{@code *.MyListener}: deactivates every listener whose simple class name is
+	 * exactly {@code MyListener}.
+	 * <li>{@code *System*, *Dev*}: deactivates every listener whose FQCN contains
+	 * {@code System} or {@code Dev}.
+	 * <li>{@code org.example.MyListener, org.example.TheirListener}: deactivates
+	 * listeners whose FQCN is exactly {@code org.example.MyListener} or
+	 * {@code org.example.TheirListener}.
+	 * </ul>
+	 *
+	 * @see #DEACTIVATE_ALL_LISTENERS_PATTERN
+	 * @see org.junit.platform.launcher.TestExecutionListener
+	 */
+	public static final String DEACTIVATE_LISTENERS_PATTERN_PROPERTY_NAME = "junit.platform.execution.listeners.deactivate";
+
+	/**
+	 * Wildcard pattern which signals that all listeners registered via the
+	 * {@link java.util.ServiceLoader ServiceLoader} mechanism should be deactivated:
+	 * {@value}
+	 *
+	 * @see #DEACTIVATE_LISTENERS_PATTERN_PROPERTY_NAME
+	 * @see org.junit.platform.launcher.TestExecutionListener
+	 */
+	public static final String DEACTIVATE_ALL_LISTENERS_PATTERN = ClassNamePatternFilterUtils.DEACTIVATE_ALL_PATTERN;
+
+	/**
+	 * Property name used to enable support for
+	 * {@link LauncherInterceptor} instances to be registered via the
+	 * {@link java.util.ServiceLoader ServiceLoader} mechanism: {@value}
+	 *
+	 * <p>By default, interceptor registration is disabled.
+	 *
+	 * @see LauncherInterceptor
+	 */
+	@API(status = EXPERIMENTAL, since = "1.10")
+	public static final String ENABLE_LAUNCHER_INTERCEPTORS = "junit.platform.launcher.interceptors.enabled";
+
+	/**
+	 * Property name used to enable dry-run mode for test execution.
+	 *
+	 * <p>When dry-run mode is enabled, no tests will be executed. Instead, all
+	 * registered {@link TestExecutionListener TestExecutionListeners} will
+	 * receive events for all test descriptors that are part of the discovered
+	 * {@link TestPlan}. All containers will be reported as successful and all
+	 * tests as skipped. This can be useful to test changes in the configuration
+	 * of a build or to verify a listener is called as expected without having
+	 * to wait for all tests to be executed.
+	 *
+	 * <p>Value must be either {@code true} or {@code false}; defaults to {@code false}.
+	 */
+	@API(status = EXPERIMENTAL, since = "1.10")
+	public static final String DRY_RUN_PROPERTY_NAME = "junit.platform.execution.dryRun.enabled";
+
+	/**
+	 * Property name used to enable or disable stack trace pruning.
+	 *
+	 * <p>By default, stack trace pruning is enabled.
+	 *
+	 * @see org.junit.platform.launcher.core.EngineExecutionOrchestrator
+	 */
+	@API(status = EXPERIMENTAL, since = "1.10")
+	public static final String STACKTRACE_PRUNING_ENABLED_PROPERTY_NAME = "junit.platform.stacktrace.pruning.enabled";
 
 	private LauncherConstants() {
 		/* no-op */
